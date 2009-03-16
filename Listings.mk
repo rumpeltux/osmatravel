@@ -1,6 +1,11 @@
 # How should the listings boxes be placed (manual or auto )
 LISTINGS_PLACEMENT = auto
 
+# If using auto listings placement should expand the map to fit them?
+# ( yes or no )
+EXPAND_FOR_LISTINGS = yes
+MIN_LISTINGS_BOX_SIZE=65
+
 # =============== Manual Listings Placement ===============================
 #
 # If you are using manual placement you will need to configure these values
