@@ -66,7 +66,7 @@ rels.xml : Config.mk
 	wget -q -O rels.xml "http://openstreetmap.org/api/0.5/relations/search?type=name&value=${BORDER_VALUE}"
 
 relid : Config.mk rels.xml
-	${XML} sel -t -m "/osm" -v "relation[tag/@k = 'Is_In' and tag/@v = '${IS_IN}']/@id" rels.xml > relid
+	${XML} sel -t -m "/osm" -v "relation[tag/@k = 'is_in' and tag/@v = '${IS_IN}']/@id" rels.xml > relid
 
 relation.xml : relid
 	wget -q -O relation.xml "http://openstreetmap.org/api/0.5/relation/`cat relid`/full"
