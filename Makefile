@@ -155,7 +155,7 @@ osm-clean :
 
 .PHONY : clean
 clean : wt-clean osm-clean
-	${RM} map.svg listings.svg namednodes.txt unmatched.txt transform.log ${RULES_FILE}
+	${RM} index.scm map.svg listings.svg listings.png namednodes.txt unmatched.txt transform.log ${RULES_FILE}
 
 .PHONY : diff
 diff : article.wiki
