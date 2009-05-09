@@ -29,145 +29,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:param name="size"/>
     <xsl:param name="expandForListings" required="yes" select="no"/>
     <xsl:param name="minOffset" required="yes" select="78"/>
-
     <xsl:param name="cropMarginFactor" required="yes" select="0.04"/>
 
-    <xsl:variable name="dataWidth">
-        <xsl:choose>
-            <xsl:when test="$size = 'two-page' and $orientation = 'landscape'">346</xsl:when>
-            <xsl:when test="$size = 'two-page' and $orientation = 'portrait'">300.8</xsl:when>
-            <xsl:when test="$size = 'one-page' and $orientation = 'landscape'">300.8</xsl:when>
-            <xsl:when test="$size = 'one-page' and $orientation = 'portrait'">173</xsl:when>
-        </xsl:choose>
-    </xsl:variable>
-
-    <xsl:variable name="dataHeight">
-        <xsl:choose>
-            <xsl:when test="$size = 'two-page' and $orientation = 'landscape'">300.8</xsl:when>
-            <xsl:when test="$size = 'two-page' and $orientation = 'portrait'">346</xsl:when>
-            <xsl:when test="$size = 'one-page' and $orientation = 'landscape'">173</xsl:when>
-            <xsl:when test="$size = 'one-page' and $orientation = 'portrait'">300.8</xsl:when>
-        </xsl:choose>
-    </xsl:variable>
-
-    <xsl:variable name="ratio" select="$dataWidth div $dataHeight"/>
-
-    <xsl:variable name="reldata" select="document('relation.xml')"/>
-
-    <xsl:variable name="bottomLeftLatitude">
-        <xsl:for-each select="$reldata/osm/node">
-            <xsl:sort select="@lat" data-type="number"/>
-            <xsl:if test="position() = 1">
-                <xsl:value-of select="@lat"/>
-            </xsl:if>
-        </xsl:for-each>
-    </xsl:variable>
-
-    <xsl:variable name="topRightLatitude">
-        <xsl:for-each select="$reldata/osm/node">
-            <xsl:sort select="@lat" data-type="number"/>
-            <xsl:if test="position() = last()">
-                <xsl:value-of select="@lat"/>
-            </xsl:if>
-        </xsl:for-each>
-    </xsl:variable>
-
-    <xsl:variable name="bottomLeftLongitude">
-        <xsl:for-each select="$reldata/osm/node">
-            <xsl:sort select="@lon" data-type="number"/>
-            <xsl:if test="position() = 1">
-                <xsl:value-of select="@lon"/>
-            </xsl:if>
-        </xsl:for-each>
-    </xsl:variable>
-
-    <xsl:variable name="topRightLongitude">
-        <xsl:for-each select="$reldata/osm/node">
-            <xsl:sort select="@lon" data-type="number"/>
-            <xsl:if test="position() = last()">
-                <xsl:value-of select="@lon"/>
-            </xsl:if>
-        </xsl:for-each>
-    </xsl:variable>
-
-    <!-- Derive the latitude of the middle of the map -->
-    <xsl:variable name="middleLatitude" select="($topRightLatitude + $bottomLeftLatitude) div 2.0"/>
-    <!--woohoo lets do trigonometry in xslt -->
-    <!--convert latitude to radians -->
-    <xsl:variable name="latr" select="$middleLatitude * 3.1415926 div 180.0"/>
-    <!--taylor series: two terms is 1% error at lat<68 and 10% error lat<83. we probably need polar projection by then -->
-    <xsl:variable name="coslat" select="1 - ($latr * $latr) div 2 + ($latr * $latr * $latr * $latr) div 24"/>
-    <xsl:variable name="projection" select="1 div $coslat"/>
-
-    <xsl:variable name="horizontalCropOffset" select="($topRightLongitude - $bottomLeftLongitude) * $cropMarginFactor"/>
-    <xsl:variable name="verticalCropOffset"   select="($topRightLatitude - $bottomLeftLatitude) * $cropMarginFactor"/>
-
-    <xsl:variable name="bboxWidth" select="( ($topRightLongitude - $bottomLeftLongitude + ( 2 * $horizontalCropOffset ) ) * 10000 )"/>
-    <xsl:variable name="bboxHeight" select="( ($topRightLatitude - $bottomLeftLatitude + ( 2 * $verticalCropOffset ) ) * $projection * 10000 )"/>
-
-    <xsl:variable name="relation-ratio" select="$bboxWidth div $bboxHeight"/>
-
-    <xsl:variable name="scale">
-        <xsl:choose>
-            <xsl:when test="$relation-ratio &lt; $ratio">
-                <xsl:variable name="rawScale" select="$dataHeight div $bboxHeight"/>
-                <xsl:variable name="testOffset" select="$dataWidth - $bboxWidth * $rawScale"/>
-                <xsl:choose>
-                    <xsl:when test="$expandForListings = 'yes' and $testOffset &lt; $minOffset">
-                        <xsl:value-of select="( $dataWidth - $minOffset ) div $bboxWidth"/>
-                    </xsl:when>
-                    <xsl:otherwise>
-                        <xsl:value-of select="$rawScale"/>
-                    </xsl:otherwise>
-                </xsl:choose>
-            </xsl:when>
-            <xsl:when test="$relation-ratio &gt; $ratio">
-                <xsl:variable name="rawScale" select="$dataWidth div $bboxWidth"/>
-                <xsl:variable name="testOffset" select="( $dataHeight - $bboxHeight * $rawScale ) div $projection"/>
-                <xsl:choose>
-                    <xsl:when test="$expandForListings = 'yes' and $testOffset &lt; $minOffset">
-                        <xsl:value-of select="( $dataHeight - $minOffset ) div $bboxHeight"/>
-                    </xsl:when>
-                    <xsl:otherwise>
-                        <xsl:value-of select="$rawScale"/>
-                    </xsl:otherwise>
-                </xsl:choose>
-            </xsl:when>
-            <xsl:otherwise>1</xsl:otherwise>
-        </xsl:choose>
-    </xsl:variable>
-
-    <xsl:variable name="leftOffset" select="$dataWidth - $bboxWidth * $scale"/>
-    <xsl:variable name="bottomOffset" select="( $dataHeight - $bboxHeight * $scale ) div $projection"/>
-
-    <xsl:variable name="dataurl">
-        <xsl:text>http://www.openstreetmap.org/api/0.5/map?bbox=</xsl:text>
-        <xsl:value-of select="$bottomLeftLongitude - $leftOffset div ( 10000 * $scale ) - $horizontalCropOffset"/>
-        <xsl:text>,</xsl:text>
-        <xsl:value-of select="$bottomLeftLatitude - $bottomOffset div ( 10000 * $scale ) - $verticalCropOffset"/>
-        <xsl:text>,</xsl:text>
-        <xsl:value-of select="$topRightLongitude + $horizontalCropOffset"/>
-        <xsl:text>,</xsl:text>
-        <xsl:value-of select="$topRightLatitude + $verticalCropOffset"/>
-    </xsl:variable>
-
-    <xsl:variable name="iconLatitudeScaleFactor">85</xsl:variable>
-
-    <!-- if latitude data is not available, just scale symbols to size 1 -->
-    <xsl:variable name="symbolScale">
-      <xsl:choose>
-        <xsl:when test="$size = 'one-page'">
-          <xsl:value-of select="1.2"/>
-        </xsl:when>
-        <xsl:when test="$size = 'two-page'">
-          <xsl:value-of select="1.2"/>
-        </xsl:when>
-        <xsl:otherwise>
-          <xsl:value-of select="1"/>
-        </xsl:otherwise>
-      </xsl:choose>
-    </xsl:variable>
-
+    <xsl:include href="variables.xsl"/>
 
     <xsl:template match="/">
 
@@ -444,8 +308,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 					<rule e="way" k="highway" v="pedestrian" layer="4">
 					    <text k="name" startOffset='50%' class="highway-name highway-pedestrian-name" dy='0.7px' />
 					</rule>
-
-                    <xsl:if test="$scale > 0.6">
+                    <!--xsl:if test="$scale > 0.1" -->
                         <rule e="way" k="scramble" v="*" layer="4">
                             <text k="name" startOffset='50%' class="caption-casing highway-scramble-name" dy='0.7px' />
                             <text k="name" startOffset='50%' class="caption-core highway-scramble-name" dy='0.7px' />
@@ -471,27 +334,27 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                         <rule e="way" k="highway" v="unsurfaced" layer="4">
                             <text k="name" startOffset='50%' class="highway-name highway-unsurfaced-name" dy='0.7px' />
                         </rule>
-                    </xsl:if>
-                    <xsl:if test="$scale > 0.62">
+                    <!-- /xsl:if-->
+                    <!-- xsl:if test="$scale > 0.2" -->
                         <rule e="way" k="highway" v="service" layer="4">
                             <text k="name" startOffset='50%' class="highway-name highway-service-name" dy='0.7px' />
                         </rule>
-                    </xsl:if>
-                    <xsl:if test="$scale > 0.6">
+                    <!-- /xsl:if -->
+                    <!-- xsl:if test="$scale > 0.2" -->
                         <rule e="way" k="highway" v="unclassified|residential|minor" layer="4">
                             <text k="name" startOffset='50%' class="highway-name highway-unclassified-name" dy='0.7px' />
                         </rule>
-                    </xsl:if>
-                    <xsl:if test="$scale > 0.5">
+                    <!-- /xsl:if -->
+                    <!-- xsl:if test="$scale > 0.1" -->
                         <rule e="way" k="highway" v="tertiary" layer="4">
                             <text k="name" startOffset='50%' class="highway-name highway-tertiary-name" dy='1px' />
                         </rule>
-                    </xsl:if>
-                    <xsl:if test="$scale > 0.4">
+                    <!-- /xsl:if -->
+                    <!-- xsl:if test="$scale > 0.1" -->
                         <rule e="way" k="highway" v="secondary" layer="4">
                             <text k="name" startOffset='50%' class="highway-name highway-secondary-name" dy='1px' />
                         </rule>
-                    </xsl:if>
+                    <!-- /xsl:if -->
 					<rule e="way" k="highway" v="primary_link" layer="4">
 					    <text k="name" startOffset='50%' class="highway-name highway-primary-link-name" dy='1px' />
 					</rule>
@@ -1510,85 +1373,85 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 .highway-motorway-bridge-core           { stroke-width: 4.2px; }
                 .highway-motorway-casing				{ stroke-width: 3.8px;  stroke: #777777; }
                 .highway-motorway-core					{ stroke-width: 3.4px;  stroke: #809BC0; }
-                .highway-motorway-name                  { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-motorway-ref                   { stroke-width: 0px;     font-size: 4px; }
+                .highway-motorway-name                  { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-motorway-ref                   { stroke-width: 0px;     font-size: <xsl:value-of select="4 * $scale"/>px; }
 
                 .highway-trunk-bridge-casing            { stroke-width: 4.6px; }
                 .highway-trunk-bridge-core              { stroke-width: 4.2px; }
                 .highway-trunk-casing                   { stroke-width: 3.4px;     stroke: #777777; }
                 .highway-trunk-core                     { stroke-width: 3px;  stroke: #ffffff; }
-                .highway-trunk-name                     { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-trunk-ref                      { stroke-width: 0px;     font-size: 4px; }
+                .highway-trunk-name                     { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-trunk-ref                      { stroke-width: 0px;     font-size: <xsl:value-of select="4 * $scale"/>px; }
 
                 .highway-primary-bridge-casing          { stroke-width: 4.6px; }
                 .highway-primary-bridge-core            { stroke-width: 4.2px; }
                 .highway-primary-casing                 { stroke-width: 3.4px;     stroke: #777777; }
                 .highway-primary-core                   { stroke-width: 3px;  stroke: #ffffff; }
-                .highway-primary-name                   { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-primary-ref					{ stroke-width: 0px;     font-size: 4px; }
+                .highway-primary-name                   { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-primary-ref					{ stroke-width: 0px;     font-size: <xsl:value-of select="4 * $scale"/>px; }
 
                 .highway-motorway-link-bridge-casing    { stroke-width: 4.6px; }
                 .highway-motorway-link-bridge-core      { stroke-width: 4.2px; }
                 .highway-motorway-link-casing           { stroke-width: 3.4px;     stroke: #777777; }
                 .highway-motorway-link-core             { stroke-width: 3px;  stroke: #ffffff; }
-                .highway-motorway-link-name             { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-motorway-link-ref              { stroke-width: 0px;     font-size: 4px; }
+                .highway-motorway-link-name             { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-motorway-link-ref              { stroke-width: 0px;     font-size: <xsl:value-of select="4 * $scale"/>px; }
 
                 .highway-trunk-link-bridge-casing       { stroke-width: 4.6px; }
                 .highway-trunk-link-bridge-core         { stroke-width: 4.2px; }
                 .highway-trunk-link-casing              { stroke-width: 3.4px;     stroke: #777777; }
                 .highway-trunk-link-core                { stroke-width: 3px;  stroke: #ffffff; }
-                .highway-trunk-link-name                { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-trunk-link-ref                 { stroke-width: 0px;     font-size: 4px; }
+                .highway-trunk-link-name                { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-trunk-link-ref                 { stroke-width: 0px;     font-size: <xsl:value-of select="4 * $scale"/>px; }
 
                 .highway-primary-link-bridge-casing     { stroke-width: 4.6px; }
                 .highway-primary-link-bridge-core       { stroke-width: 4.2px; }
                 .highway-primary-link-casing            { stroke-width: 3.4px;  stroke: #777777; }
                 .highway-primary-link-core              { stroke-width: 3px;   stroke: #ffffff; }
-                .highway-primary-link-name              { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-primary-link-ref               { stroke-width: 0px;     font-size: 4px; }
+                .highway-primary-link-name              { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-primary-link-ref               { stroke-width: 0px;     font-size: <xsl:value-of select="4 * $scale"/>px; }
 
                 .highway-secondary-bridge-casing        { stroke-width: 4.6px; }
                 .highway-secondary-bridge-core          { stroke-width: 4.2px; }
                 .highway-secondary-casing				{ stroke-width: 3.4px;	 stroke: #777777; }
                 .highway-secondary-core                 { stroke-width: 3px;  stroke: #ffffff; }
-                .highway-secondary-name                 { stroke-width: 0px;     font-size: 2.2px;}
-                .highway-secondary-ref                  { stroke-width: 0px;     font-size: 4px; }
+                .highway-secondary-name                 { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px;}
+                .highway-secondary-ref                  { stroke-width: 0px;     font-size: <xsl:value-of select="4 * $scale"/>px; }
 
                 .highway-tertiary-bridge-casing         { stroke-width: 4.6px; }
                 .highway-tertiary-bridge-core           { stroke-width: 4.2px; }
                 .highway-tertiary-casing                { stroke-width: 3.4px;  stroke: #777777; }
                 .highway-tertiary-core                  { stroke-width: 3px;   stroke: #ffffff; }
-                .highway-tertiary-name                  { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-tertiary-ref					{ stroke-width: 0px;     font-size: 3px; }
+                .highway-tertiary-name                  { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-tertiary-ref					{ stroke-width: 0px;     font-size: <xsl:value-of select="3 * $scale"/>px; }
 
                 .highway-unclassified-bridge-casing     { stroke-width: 3.1px; }
                 .highway-unclassified-bridge-core       { stroke-width: 2.9px; }
                 .highway-unclassified-casing            { stroke-width: 2.5px;  stroke: #777777; }
                 .highway-unclassified-core              { stroke-width: 2.25px;   stroke: #ffffff; }
-                .highway-unclassified-name              { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-unclassified-ref               { stroke-width: 0px;     font-size: 2.2px; }
+                .highway-unclassified-name              { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-unclassified-ref               { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
 
                 .highway-service-bridge-casing          { stroke-width: 2.8px; }
                 .highway-service-bridge-core            { stroke-width: 2.6px; }
                 .highway-service-casing                 { stroke-width: 2.2px;   stroke: #777777; }
                 .highway-service-core                   { stroke-width: 2px;   stroke: #ffffff; }
-                .highway-service-name                   { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-service-ref                    { stroke-width: 0px;     font-size: 2.2px; }
+                .highway-service-name                   { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-service-ref                    { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
 
                 .highway-unsurfaced-bridge-casing       { stroke-width: 2.8px; }
                 .highway-unsurfaced-bridge-core         { stroke-width: 2.6px; }
                 .highway-unsurfaced-casing              { stroke-width: 2.2px;   stroke: #777777; stroke-dasharray: 2, 1; stroke-linecap: butt; }
                 .highway-unsurfaced-core                { stroke-width: 2px;   stroke: #ffffff; }
-                .highway-unsurfaced-name                { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-unsurfaced-ref                 { stroke-width: 0px;     font-size: 2.2px; }
+                .highway-unsurfaced-name                { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-unsurfaced-ref                 { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
 
                 .highway-track-bridge-casing            { stroke-width: 2.8px; }
                 .highway-track-bridge-core              { stroke-width: 2.6px; }
                 .highway-track-casing                   { stroke-width: 2.2px;   stroke: #d79331; }
                 .highway-track-core                     { stroke-width: 2px;   stroke: #ffffff; }
-                .highway-track-name                     { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-track-ref                      { stroke-width: 0px;     font-size: 2.2px; }
+                .highway-track-name                     { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-track-ref                      { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
 
                 .highway-byway-bridge-casing            { stroke-width: 2.8px; }
                 .highway-byway-bridge-core              { stroke-width: 2.6px; }
@@ -1596,46 +1459,46 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 .highway-byway-2-casing                 { stroke-width: 1.6px;   stroke: #efadaa; }
                 .highway-byway-3-casing                 { stroke-width: 2.8px;   stroke: #555555;  stroke-dasharray: 0.2, 1.6; stroke-dashoffset: 1.2; stroke-linecap: butt; }
                 .highway-byway-1-core                   { stroke-width: 0.8px;   stroke: #efadaa; }
-                .highway-byway-name                     { stroke-width: 0px;     font-size: 2.5px; }
-                .highway-byway-ref                      { stroke-width: 0px;     font-size: 2.5px; }
+                .highway-byway-name                     { stroke-width: 0px;     font-size: <xsl:value-of select="2.5 * $scale"/>px; }
+                .highway-byway-ref                      { stroke-width: 0px;     font-size: <xsl:value-of select="2.5 * $scale"/>px; }
 
                 .highway-bridleway-bridge-casing        { stroke-width: 3.0px; }
                 .highway-bridleway-bridge-core          { stroke-width: 2.8px; }
                 .highway-bridleway-casing               { stroke-width: 2px;     stroke: #777777;  stroke-dasharray: 1.4, 0.4; stroke-linecap: butt; }
                 .highway-bridleway-core                 { stroke-width: 1.6px;   stroke: #e3e9f1; }
-                .highway-bridleway-name                 { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-bridleway-ref                  { stroke-width: 0px;     font-size: 2.2px; }
+                .highway-bridleway-name                 { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-bridleway-ref                  { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
 
                 .highway-cycleway-bridge-casing         { stroke-width: 2.8px; }
                 .highway-cycleway-bridge-core           { stroke-width: 2.6px; }
                 .highway-cycleway-casing                { stroke-width: 1.8px;     stroke: #777777; stroke-dasharray: 0.4, 0.4; stroke-linecap: butt;}
                 .highway-cycleway-core                  { stroke-width: 1.6px;   stroke: #d1ead1; }
-                .highway-cycleway-name                  { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-cycleway-ref                   { stroke-width: 0px;     font-size: 2.2px; }
+                .highway-cycleway-name                  { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-cycleway-ref                   { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
 
                 .highway-pedestrian-bridge-casing       { stroke-width: 3.4px; }
                 .highway-pedestrian-bridge-core         { stroke-width: 3.2px; }
                 .highway-pedestrian-casing              { stroke-width: 2.2px;   stroke: #aaaaaa; }
                 .highway-pedestrian-core                { stroke-width: 2px;     stroke: #eeeeee; }
-                .highway-pedestrian-name                { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-pedestrian-ref                 { stroke-width: 0px;     font-size: 3px; }
+                .highway-pedestrian-name                { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-pedestrian-ref                 { stroke-width: 0px;     font-size: <xsl:value-of select="3 * $scale"/>px; }
 
                 .highway-footway-bridge-casing          { stroke-width: 2.2px; }
                 .highway-footway-bridge-core            { stroke-width: 2px; }
                 .highway-footway-casing                 { stroke-width: 1.2px;   stroke: #777777; stroke-dasharray: 0.4, 0.4; stroke-linecap: butt;}
                 .highway-footway-core                   { stroke-width: 1px;     stroke: #efeaa0; }
-                .highway-footway-name                   { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-footway-ref                    { stroke-width: 0px;     font-size: 2.2px; }
+                .highway-footway-name                   { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-footway-ref                    { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
 
                 .highway-steps-bridge-casing            { stroke-width: 2.2px; }
                 .highway-steps-bridge-core              { stroke-width: 2px; }
                 .highway-steps-casing                   { stroke-width: 1.2px;   stroke: #777777; }
                 .highway-steps-core                     { stroke-width: 1px;     stroke: #e5e0c2; stroke-dasharray: 0.6, 0.2; stroke-linecap: butt;}
-                .highway-steps-name                     { stroke-width: 0px;     font-size: 2.2px; }
-                .highway-steps-ref                      { stroke-width: 0px;     font-size: 3px; }
+                .highway-steps-name                     { stroke-width: 0px;     font-size: <xsl:value-of select="2.2 * $scale"/>px; }
+                .highway-steps-ref                      { stroke-width: 0px;     font-size: <xsl:value-of select="3 * $scale"/>px; }
 
                 .highway-scramble-core                  { stroke-width: 0.3px;   stroke: #777777; stroke-dasharray: 1.6, 0.4; stroke-linecap: butt;}
-                .highway-scramble-name                  { stroke-width: 1.0px;   fill: black;  font-size: 2.2px; }
+                .highway-scramble-name                  { stroke-width: 1.0px;   fill: black;  font-size: <xsl:value-of select="2.2 * $scale"/>px; }
                 
                 /* Aeroways */
                 .aeroway-apron {

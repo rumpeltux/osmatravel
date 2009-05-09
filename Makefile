@@ -23,19 +23,21 @@
 # the various build targets won't have to be dependant 
 # on this file
 include Config.mk
-include Listings.mk
 
-####################################################
+# Functions
+################################################################################
 
-# targets
-RULES_FILE = wikitravel-print-rules.xml
+getval = $(shell if egrep -q '\[\[Image:.*$(1)=' article.wiki ; then egrep '\[\[Image:.*$(1)=' article.wiki | sed 's/.*$(1)=\([^|]*\)|.*/\1/' ; else echo $(2) ; fi )
+
+################################################################################
 
 # Programs
 XML = xmlstarlet
+LISTFILTER = listfilter.sh
 
 empty:=
 space:= $(empty) $(empty)
-BORDER_VALUE = $(subst $(space),+,${BORDER})
+BORDER_VALUE = $(subst $(space),+,$(call getval,border))
 
 DING = $(shell if [ "${BELL}" = "yes" ] ; then echo 'ding' ; else echo '' ; fi )
 
@@ -59,20 +61,20 @@ endif
 
 all : map.svg listings.svg unmatched.txt ${PNG} ${DING}
 
-map.svg : data.osm osmarender.xsl ${RULES_FILE}
-	${XML} tr --net osmarender.xsl ${RULES_FILE} > $@ 2> transform.log
+map.svg : data.osm osmarender.xsl wikitravel-print-rules.xml
+	${XML} tr --net osmarender.xsl wikitravel-print-rules.xml > $@ 2> osmarender.log
 
 rels.xml : Config.mk
-	wget -q -O rels.xml "http://openstreetmap.org/api/0.5/relations/search?type=name&value=${BORDER_VALUE}"
+	wget -q -O rels.xml "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]"
 
 relid : Config.mk rels.xml
-	${XML} sel -t -m "/osm" -v "relation[tag/@k = 'is_in' and tag/@v = '${IS_IN}']/@id" rels.xml > relid
+	${XML} sel -t -m "/osm" -v "relation[tag/@k = 'Is_In' and tag/@v = '$(call getval,is_in)']/@id" rels.xml > relid
 
 relation.xml : relid
-	wget -q -O relation.xml "http://openstreetmap.org/api/0.5/relation/`cat relid`/full"
+	wget -q -O relation.xml "http://openstreetmap.org/api/0.6/relation/`cat relid`/full"
 
-data.osm : wikitravel-print-rules.xml
-	wget -q -O data.osm `xmlstarlet sel -t -m '/rules' -v '@dataurl' wikitravel-print-rules.xml`
+data.osm : dataurl.txt
+	wget -q -O data.osm `cat dataurl.txt`
 
 article.xml : Config.mk
 	wget -q -O article.xml http://wikitravel.org/en/Special:Export?pages=${ARTICLE}
@@ -80,44 +82,57 @@ article.xml : Config.mk
 article.wiki : article.xml
 	${XML} sel -N mw=http://www.mediawiki.org/xml/export-0.3/ -t -v "/mw:mediawiki/mw:page/mw:revision/mw:text" article.xml | ${XML} unesc > article.wiki
 
-listings.xml : article.wiki
-	echo '<listings>' > listings.xml
-	sed 's/&/\&amp;/g' < article.wiki >> listings.xml
-	echo '</listings>' >> listings.xml
+listings-all.xml : article.wiki
+	echo '<listings>' > listings-all.xml
+	sed 's/&/\&amp;/g' < article.wiki >> listings-all.xml
+	echo '</listings>' >> listings-all.xml
 
-${RULES_FILE} : icon_rules.xsl listings.xml relation.xml
+listings.xml : listings-all.xml unmatched.txt
+	${XML} ed -d "`sh ${LISTFILTER} | sed -e 's/_/ /g' -e 's/\"/\\\"/g'`" listings-all.xml > $@
+
+wikitravel-print-rules.xml : icon_rules.xsl variables.xsl listings-all.xml relation.xml
 	${XML} tr icon_rules.xsl \
-		-s border="${BORDER}" \
-		-s listingsPlacement="${LISTINGS_PLACEMENT}" \
-		-s expandForListings="${EXPAND_FOR_LISTINGS}" \
-		-s minOffset="${MIN_LISTINGS_BOX_SIZE}" \
-		-s orientation="${ORIENTATION}" \
-		-s size="${SIZE}" \
-		listings.xml > $@
+		-s border="$(call getval,border)" \
+		-s listingsPlacement="$(call getval,listings_placement,auto)" \
+		-s expandForListings="$(call getval,expand_for_listings,yes)" \
+		-s minOffset="$(call getval,min_listings_box_size,65)" \
+		-s orientation="$(call getval,orientation,landscape)" \
+		-s size="$(call getval,size,two-page)" \
+		listings-all.xml > $@ 2> icon_rules.log
+
+dataurl.txt : dataurl.xsl variables.xsl listings-all.xml relation.xml
+	${XML} tr dataurl.xsl \
+		-s border="$(call getval,border)" \
+		-s listingsPlacement="$(call getval,listings_placement,auto)" \
+		-s expandForListings="$(call getval,expand_for_listings,yes)" \
+		-s minOffset="$(call getval,min_listings_box_size,65)" \
+		-s orientation="$(call getval,orientation,landscape)" \
+		-s size="$(call getval,size,two-page)" \
+		listings-all.xml > $@
 
 overlay.svg :
 	touch $@
 
-listings.svg : listings_box.xsl listings.xml ${RULES_FILE} map.svg overlay.svg Listings.mk
+listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg overlay.svg 
 	${XML} tr listings_box.xsl \
-		-s orientation="${ORIENTATION}" \
-		-s size="${SIZE}" \
-		-s rulesfile="${RULES_FILE}" \
-		-s listingsPlacement="${LISTINGS_PLACEMENT}" \
-		-s boxWidth="${BOX_WIDTH}" \
-		-s box1X="${BOX1_X}" \
-		-s box1Y="${BOX1_Y}" \
-		-s box1Height="${BOX1_H}" \
-		-s box2X="${BOX2_X}" \
-		-s box2Y="${BOX2_Y}" \
-		-s box2Height="${BOX2_H}" \
-		-s box3X="${BOX3_X}" \
-		-s box3Y="${BOX3_Y}" \
-		-s box3Height="${BOX3_H}" \
-		-s box4X="${BOX4_X}" \
-		-s box4Y="${BOX4_Y}" \
-		-s box4Height="${BOX4_H}" \
-		listings.xml > $@
+		-s orientation="$(call getval,orientation,landscape)" \
+        -s size="$(call getval,size,two-page)" \
+		-s rulesfile="wikitravel-print-rules.xml" \
+		-s listingsPlacement="$(call getval,listings_placement,auto)" \
+		-s boxWidth="$(call getval,box_width)" \
+		-s box1X="$(call getval,box1_x)" \
+		-s box1Y="$(call getval,box1_y)" \
+		-s box1Height="$(call getval,box1_h)" \
+		-s box2X="$(call getval,box2_x)" \
+		-s box2Y="$(call getval,box2_y)" \
+		-s box2Height="$(call getval,box2_h)" \
+		-s box3X="$(call getval,box3_x)" \
+		-s box3Y="$(call getval,box3_y)" \
+		-s box3Height="$(call getval,box3_h)" \
+		-s box4X="$(call getval,box4_x)" \
+		-s box4Y="$(call getval,box4_y)" \
+		-s box4Height="$(call getval,box4_h)" \
+		listings.xml > $@ 2> listings_box.log
 
 listings.png : listings.svg
 	inkscape -z --export-png=listings.png -w ${WIDTH} -h ${HEIGHT} listings.svg >/dev/null 2>&1
@@ -132,10 +147,9 @@ index.scm : Config.mk
 	echo '(gimp-quit 1 )' >> $@
 
 ${PNG} : listings.png index.scm
-	gimp-console -icd -b - < index.scm >/dev/null 2>&1
+	gimp -i -c -d -b - < index.scm >/dev/null 2>&1
 
-
-listings.txt : listings.xml
+listings.txt : listings-all.xml
 	${XML} sel -T -t -m '/listings' -m 'see|do|buy|eat|drink|sleep' -v @name -n $< > $@
 
 namednodes.txt : data.osm
@@ -145,9 +159,10 @@ namednodes.txt : data.osm
 unmatched.txt : namednodes.txt listings.txt
 	grep -v -f $^ > $@ || /bin/true
 
+
 .PHONY : wt-clean
 wt-clean :
-	${RM} article.xml article.wiki wikitravel-print-rules.xml listings.xml listings.txt ${PNG}
+	${RM} article.xml article.wiki wikitravel-print-rules.xml listings-all.xml listings.xml listings.txt
 
 .PHONY : osm-clean
 osm-clean : 
@@ -155,7 +170,7 @@ osm-clean :
 
 .PHONY : clean
 clean : wt-clean osm-clean
-	${RM} index.scm map.svg listings.svg listings.png namednodes.txt unmatched.txt transform.log ${RULES_FILE}
+	${RM} index.scm map.svg listings.svg listings.png namednodes.txt unmatched.txt transform.log wikitravel-print-rules.xml
 
 .PHONY : diff
 diff : article.wiki
@@ -164,6 +179,11 @@ diff : article.wiki
 .PHONY : ding
 ding : map.svg listings.svg unmatched.txt
 	play -q bell.ogg
+
+.PHONY : adjustments
+adjustments : listings.svg
+	inkscape listings.svg
+
 
 .DELETE_ON_ERROR : 
 
