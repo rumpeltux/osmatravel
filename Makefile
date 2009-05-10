@@ -43,6 +43,10 @@ DING = $(shell if [ "${BELL}" = "yes" ] ; then echo 'ding' ; else echo '' ; fi )
 
 PNG = $(subst /,_,${ARTICLE})_map_with_listings.png
 
+SVG = $(subst /,_,${ARTICLE})_map_with_listings.svg
+
+OVERLAY = $(subst /,_,${ARTICLE})_overlay.svg
+
 ifeq (${SIZE}, two-page)
 	LDIM = 3460
 	SDIM = 3008
@@ -65,7 +69,7 @@ map.svg : data.osm osmarender.xsl wikitravel-print-rules.xml
 	${XML} tr --net osmarender.xsl wikitravel-print-rules.xml > $@ 2> osmarender.log
 
 rels.xml : Config.mk
-	wget -q -O rels.xml "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]"
+	wget -q -O $@ "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]"
 
 relid : Config.mk rels.xml
 	${XML} sel -t -m "/osm" -v "relation[tag/@k = 'Is_In' and tag/@v = '$(call getval,is_in)']/@id" rels.xml > relid
@@ -77,7 +81,16 @@ data.osm : dataurl.txt
 	wget -q -O data.osm `cat dataurl.txt`
 
 article.xml : Config.mk
-	wget -q -O article.xml http://wikitravel.org/en/Special:Export?pages=${ARTICLE}
+	wget -q -O $@ http://wikitravel.org/en/Special:Export?pages=${ARTICLE}
+
+svg_page.html : Config.mk
+	wget -q -O $@ http://wikitravel.org/shared/Image:${SVG}
+
+png_page.html : Config.mk
+	wget -q -O $@ http://wikitravel.org/shared/Image:${PNG}
+
+overlay_page.html : Config.mk
+	wget -q -O $@ http://wikitravel.org/shared/Image:${OVERLAY}
 
 article.wiki : article.xml
 	${XML} sel -N mw=http://www.mediawiki.org/xml/export-0.3/ -t -v "/mw:mediawiki/mw:page/mw:revision/mw:text" article.xml | ${XML} unesc > article.wiki
@@ -110,13 +123,18 @@ dataurl.txt : dataurl.xsl variables.xsl listings-all.xml relation.xml
 		-s size="$(call getval,size,two-page)" \
 		listings-all.xml > $@
 
-overlay.svg :
-	touch $@
+overlay.svg : overlay_page.html
+	if egrep -q '(current)' overlay_page.html ;\
+	then \
+		wget -q -O $@ http://wikitravel.org$(shell egrep '(current)' overlay_page.html | sed 's/.*href="\(\/upload\/[^"]*\).*/\1/') ;\
+	else \
+		cp overlay_base.svg overlay.svg ;\
+	fi
 
 listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg overlay.svg 
 	${XML} tr listings_box.xsl \
 		-s orientation="$(call getval,orientation,landscape)" \
-        -s size="$(call getval,size,two-page)" \
+		-s size="$(call getval,size,two-page)" \
 		-s rulesfile="wikitravel-print-rules.xml" \
 		-s listingsPlacement="$(call getval,listings_placement,auto)" \
 		-s boxWidth="$(call getval,box_width)" \

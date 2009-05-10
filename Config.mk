@@ -5,4 +5,3 @@ ARTICLE =
 
 # Do you want a bell to ring when everything is done? (yes or no) 
 BELL = yes
-
