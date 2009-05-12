@@ -1191,7 +1191,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 
         <!-- Level crossings -->
         <!-- For everything, except trams, if it shares a node with a road then render a railroad crossing symbol.  -->
-        <rule e="node" s="way" k="railway" v="rail|light_rail|subway|narrow_gauge|preserved|monorail">
+        <!-- rule e="node" s="way" k="railway" v="rail|light_rail|subway|narrow_gauge|preserved|monorail">
 			<rule e="node" s="way" k="railway" v="rail">
 				<rule e="node" s="way" k="highway" v="motorway|trunk|primary|secondary|tertiary|minor|unclassified|residential|service|unsurfaced|track">
 					<symbol xlink:href="#symbol-railway-crossing" width='7px' height='7px' transform='translate(-3.5,-3.5)' />
@@ -1202,7 +1202,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 					<symbol xlink:href="#symbol-railway-crossing" width='6px' height='6px' transform='translate(-3,-3)' />
 			    </rule>
 			</else>
-        </rule>
+        </rule -->
 
 
         <!-- Gates -->
