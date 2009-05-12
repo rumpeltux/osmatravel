@@ -22,7 +22,7 @@
 -include Config.mk
 
 ifndef ARTICLE
-	$(error You must set the variable ARTICLE, eg. make adjustments ARTICLE=Paris/6th_arrondissement)
+$(error You must set the variable ARTICLE, eg. make adjustments ARTICLE=Paris/6th_arrondissement)
 endif
 
 PAGE_WIDTH = 1730
