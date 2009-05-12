@@ -1065,14 +1065,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         </rule>
 
 		<!-- Mini-roundabouts -->
-        <rule e="node" k="highway" v="mini_roundabout">
+        <!--rule e="node" k="highway" v="mini_roundabout">
 	        <rule e="node" k="direction" v="clockwise">
 				<symbol xlink:href="#symbol-roundabout_left" width='4px' height='4px' transform='translate(0,0)'/>
 			</rule>
 			<else> <!-- Default is anti-clockwise -->
 				<symbol xlink:href="#symbol-roundabout_right" width='4px' height='4px' transform='translate(0,0)'/>
             </else>
-        </rule>
+        </rule-->
 
 
 		<!-- Oneway markers -->
