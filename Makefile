@@ -128,7 +128,7 @@ dataurl.txt : dataurl.xsl variables.xsl listings-all.xml relation.xml
 overlay.svg : overlay_page.html
 	if egrep -q '(current)' overlay_page.html ;\
 	then \
-		wget -q -O $@ http://wikitravel.org$(shell egrep '(current)' overlay_page.html | sed 's/.*href="\(\/upload\/[^"]*\).*/\1/') ;\
+		wget -q -O - http://wikitravel.org$(shell egrep '(current)' overlay_page.html | sed 's/.*href="\(\/upload\/[^"]*\).*/\1/') > $@ ;\
 	else \
 		cp overlay_base.svg $@ ;\
 	fi
@@ -179,7 +179,7 @@ namednodes.txt : data.osm
 unmatched.txt : namednodes.txt listings.txt
 	grep -v -f $^ > $@ || /bin/true
 
-${SVG} :
+${SVG} : listings.svg
 	cp listings.svg ${SVG}
 
 .PHONY : wt-clean
