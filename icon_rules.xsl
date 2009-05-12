@@ -1335,39 +1335,39 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 
                 .railway-rail-bridge-casing             { stroke-width: 5.5px; }
                 .railway-rail-bridge-core               { stroke-width: 4.5px; }
-                .railway-rail-casing                    { stroke-width: 2.0px; stroke: #aaaaaa; }
-                .railway-rail-1-core                    { stroke-width: 1.6px; stroke: #ffffff; }
-                .railway-rail-2-core                    { stroke-width: 3.0px; stroke: #aaaaaa; stroke-dasharray: 0.2, 2.0; }
+                .railway-rail-casing                    { stroke-width: 1.0px; stroke: #aaaaaa; }
+                .railway-rail-1-core                    { stroke-width: 1.9px; stroke: #ffffff; }
+                .railway-rail-2-core                    { stroke-width: 0.7px; stroke: #000000; }
 
                 .railway-light-rail-bridge-casing       { stroke-width: 4.1px; }
                 .railway-light-rail-bridge-core         { stroke-width: 3.1px; }
-                .railway-light-rail-casing              { stroke-width: 1.6px; stroke: #aaaaaa; }
-                .railway-light-rail-core                { stroke-width: 1.2px; stroke: #ec2d2d; stroke-dasharray: 1, 3; }
+                .railway-light-rail-casing              { stroke-width: 1.0px; stroke: #aaaaaa; }
+                .railway-light-rail-core                { stroke-width: 0.7px; stroke: #ec2d2d; }
 
                 .railway-subway-bridge-casing           { stroke-width: 4.1px; }
                 .railway-subway-bridge-core             { stroke-width: 3.1px; }
-                .railway-subway-casing                  { stroke-width: 1.6px; stroke: #aaaaaa; }
-                .railway-subway-core                    { stroke-width: 1.2px; stroke: #ec2d2d; stroke-dasharray: 1, 3; }
+                .railway-subway-casing                  { stroke-width: 1.0px; stroke: #aaaaaa; }
+                .railway-subway-core                    { stroke-width: 0.7px; stroke: #ec2d2d; }
 
                 .railway-tram-bridge-casing             { stroke-width: 4.1px; }
                 .railway-tram-bridge-core               { stroke-width: 3.1px; }
-                .railway-tram-casing                    { stroke-width: 1.2px; stroke: #aaaaaa; }
-                .railway-tram-core                      { stroke-width: 1.0px; stroke: #ec2d2d; stroke-dasharray: 1, 3; }
+                .railway-tram-casing                    { stroke-width: 1.0px; stroke: #aaaaaa; }
+                .railway-tram-core                      { stroke-width: 0.7px; stroke: #ec2d2d; }
 
                 .railway-narrow-gauge-bridge-casing     { stroke-width: 4.1px; }
                 .railway-narrow-gauge-bridge-core       { stroke-width: 3.1px; }
-                .railway-narrow-gauge-casing            { stroke-width: 1.6px; stroke: #aaaaaa; }
-                .railway-narrow-gauge-core              { stroke-width: 1.2px; stroke: #ec2d2d; stroke-dasharray: 1, 3;}
+                .railway-narrow-gauge-casing            { stroke-width: 1.0px; stroke: #aaaaaa; }
+                .railway-narrow-gauge-core              { stroke-width: 0.7px; stroke: #ec2d2d; }
 
                 .railway-preserved-bridge-casing        { stroke-width: 4.7px; }
                 .railway-preserved-bridge-core          { stroke-width: 3.7px; }
                 .railway-preserved-casing               { stroke-width: 2.2px; stroke: #666666; }
-                .railway-preserved-core                 { stroke-width: 1.8px; stroke: #666666; }
+                .railway-preserved-core                 { stroke-width: 0.6px; stroke: #666666; }
           
                 .railway-monorail-bridge-casing         { stroke-width: 4.5px; }
                 .railway-monorail-bridge-core           { stroke-width: 3.5px; }
                 .railway-monorail-casing                { stroke-width: 2.0px; stroke: #666666; }
-                .railway-monorail-core                  { stroke-width: 1.6px; stroke: #a65ca3; }
+                .railway-monorail-core                  { stroke-width: 0.8px; stroke: #a65ca3; }
 
                 .highway-motorway-bridge-casing         { stroke-width: 4.6px; }
                 .highway-motorway-bridge-core           { stroke-width: 4.2px; }
