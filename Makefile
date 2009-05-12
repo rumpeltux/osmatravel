@@ -19,15 +19,29 @@
 # ==============================================================================
 
 ################### SETTINGS ######################
-# settings have been moved out to Config.mk so that 
-# the various build targets won't have to be dependant 
-# on this file
-include Config.mk
+-include Config.mk
+
+ifndef ARTICLE
+	$(error You must set the variable ARTICLE, eg. make adjustments ARTICLE=Paris/6th_arrondissement)
+endif
+
+PAGE_WIDTH = 1730
+PAGE_HEIGHT = 3008
+PAGE_DOUBLE_WIDTH = 3460
 
 # Functions
 ################################################################################
 
 getval = $(shell if egrep -q '\[\[Image:.*$(1)=' article.wiki ; then egrep '\[\[Image:.*$(1)=' article.wiki | sed 's/.*$(1)=\([^|]*\)|.*/\1/' ; else echo $(2) ; fi )
+
+SIZE  = $(call getval,size,two-page)
+ORIENTATION = $(call getval,orientation,landscape)
+
+LONG  = $(if $(findstring two-page,$(SIZE)),$(PAGE_DOUBLE_WIDTH),${PAGE_HEIGHT})
+SHORT =  $(if $(findstring two-page,$(SIZE)),${PAGE_HEIGHT},${PAGE_WIDTH})
+
+WIDTH = $(if $(findstring landscape,$(ORIENTATION)),$(LONG),$(SHORT))
+HEIGHT = $(if $(findstring portrait,$(ORIENTATION)),$(SHORT),$(LONG))
 
 ################################################################################
 
@@ -39,58 +53,46 @@ empty:=
 space:= $(empty) $(empty)
 BORDER_VALUE = $(subst $(space),+,$(call getval,border))
 
-DING = $(shell if [ "${BELL}" = "yes" ] ; then echo 'ding' ; else echo '' ; fi )
+DING := $(shell if [ "${BELL}" != "no" ] ; then echo 'ding' ; else echo '' ; fi )
 
-PNG = $(subst /,_,${ARTICLE})_map_with_listings.png
+PNG := $(subst /,_,${ARTICLE})_map_with_listings.png
 
-SVG = $(subst /,_,${ARTICLE})_map_with_listings.svg
+SVG := $(subst /,_,${ARTICLE})_map_with_listings.svg
 
-OVERLAY = $(subst /,_,${ARTICLE})_overlay.svg
+OVERLAY := $(subst /,_,${ARTICLE})_overlay.svg
 
-ifeq (${SIZE}, two-page)
-	LDIM = 3460
-	SDIM = 3008
-else
-	LDIM = 3008
-	SDIM = 1730
-endif
-
-ifeq (${ORIENTATION}, portrait)
-	WIDTH  = ${SDIM}
-	HEIGHT = ${LDIM}
-else
-	WIDTH  = ${LDIM}
-	HEIGHT = ${SDIM}
-endif
-
-all : map.svg listings.svg unmatched.txt ${PNG} ${DING}
+all : map.svg ${SVG} unmatched.txt ${PNG} ${DING}
 
 map.svg : data.osm osmarender.xsl wikitravel-print-rules.xml
 	${XML} tr --net osmarender.xsl wikitravel-print-rules.xml > $@ 2> osmarender.log
 
+Config.mk :
+	echo ARTICLE = $(ARTICLE) > $@
+	echo BELL = $(BELL) >> $@
+
 rels.xml : Config.mk
-	wget -q -O $@ "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]"
+	wget -q -O - "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]" > $@
 
 relid : Config.mk rels.xml
 	${XML} sel -t -m "/osm" -v "relation[tag/@k = 'Is_In' and tag/@v = '$(call getval,is_in)']/@id" rels.xml > relid
 
 relation.xml : relid
-	wget -q -O relation.xml "http://openstreetmap.org/api/0.6/relation/`cat relid`/full"
+	wget -q -O - "http://openstreetmap.org/api/0.6/relation/`cat relid`/full" > $@
 
 data.osm : dataurl.txt
-	wget -q -O data.osm `cat dataurl.txt`
+	wget -q -O - `cat dataurl.txt` > $@
 
 article.xml : Config.mk
-	wget -q -O $@ http://wikitravel.org/en/Special:Export?pages=${ARTICLE}
-
-svg_page.html : Config.mk
-	wget -q -O $@ http://wikitravel.org/shared/Image:${SVG}
+	wget -q -O - http://wikitravel.org/en/Special:Export?pages=${ARTICLE} > $@
 
 png_page.html : Config.mk
-	wget -q -O $@ http://wikitravel.org/shared/Image:${PNG}
+	wget -q -O - http://wikitravel.org/shared/Image:${PNG} > $@
 
 overlay_page.html : Config.mk
-	wget -q -O $@ http://wikitravel.org/shared/Image:${OVERLAY}
+	wget -q -O - http://wikitravel.org/shared/Image:${OVERLAY} > $@
+
+svg_page.html : Config.mk
+	wget -q -O - http://wikitravel.org/shared/Image:${SVG} > $@
 
 article.wiki : article.xml
 	${XML} sel -N mw=http://www.mediawiki.org/xml/export-0.3/ -t -v "/mw:mediawiki/mw:page/mw:revision/mw:text" article.xml | ${XML} unesc > article.wiki
@@ -128,7 +130,7 @@ overlay.svg : overlay_page.html
 	then \
 		wget -q -O $@ http://wikitravel.org$(shell egrep '(current)' overlay_page.html | sed 's/.*href="\(\/upload\/[^"]*\).*/\1/') ;\
 	else \
-		cp overlay_base.svg overlay.svg ;\
+		cp overlay_base.svg $@ ;\
 	fi
 
 listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg overlay.svg 
@@ -153,7 +155,7 @@ listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg 
 		listings.xml > $@ 2> listings_box.log
 
 listings.png : listings.svg
-	inkscape -z --export-png=listings.png -w ${WIDTH} -h ${HEIGHT} listings.svg >/dev/null 2>&1
+	inkscape -z --export-png=listings.png -w $(WIDTH) -h $(HEIGHT) listings.svg >/dev/null 2>&1
 
 index.scm : Config.mk
 	echo -n > $@
@@ -177,10 +179,12 @@ namednodes.txt : data.osm
 unmatched.txt : namednodes.txt listings.txt
 	grep -v -f $^ > $@ || /bin/true
 
+${SVG} :
+	cp listings.svg ${SVG}
 
 .PHONY : wt-clean
 wt-clean :
-	${RM} article.xml article.wiki wikitravel-print-rules.xml listings-all.xml listings.xml listings.txt
+	${RM} article.xml article.wiki wikitravel-print-rules.xml listings-all.xml listings.xml listings.txt overlay.svg *.html
 
 .PHONY : osm-clean
 osm-clean : 
@@ -188,20 +192,22 @@ osm-clean :
 
 .PHONY : clean
 clean : wt-clean osm-clean
-	${RM} index.scm map.svg listings.svg listings.png namednodes.txt unmatched.txt transform.log wikitravel-print-rules.xml
+	${RM} index.scm map.svg listings.svg listings.png namednodes.txt unmatched.txt transform.log wikitravel-print-rules.xml Config.mk
+
+.PHONY : dist-clean
+	${RM} *listings.png *listings.svg *.log Config.mk
 
 .PHONY : diff
 diff : article.wiki
 	gvimdiff -f article.wiki /home/mark/share/Wiki/travel/${ARTICLE}.wiki
 
 .PHONY : ding
-ding : map.svg listings.svg unmatched.txt
+ding : map.svg ${SVG} unmatched.txt
 	play -q bell.ogg
 
 .PHONY : adjustments
 adjustments : listings.svg
 	inkscape listings.svg
-
 
 .DELETE_ON_ERROR : 
 

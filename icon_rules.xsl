@@ -111,7 +111,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
             <rule e="node|way" k="osmarender:render" v="~|yes">
                 <xsl:call-template name="landuse-rules" />
                 <xsl:call-template name="static-rules" />
-                <xsl:call-template name="transport-rules"  />
+                <!-- xsl:call-template name="transport-rules"  / -->
             </rule>
 
             <rule e="node|way" k="osmarender:render" v="~|yes" layer="4">
