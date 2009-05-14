@@ -29,11 +29,12 @@ PAGE_WIDTH = 1730
 PAGE_HEIGHT = 3008
 PAGE_DOUBLE_WIDTH = 3460
 
-SHELL=/bin/bash
 
 # Programs
+SHELL=/bin/bash
 XML = xmlstarlet
 LISTFILTER = listfilter.sh
+
 
 # Functions
 ################################################################################
