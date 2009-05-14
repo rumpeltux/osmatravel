@@ -259,24 +259,24 @@ unmatched.txt : namednodes.txt listings.txt
 ${SVG} : listings.svg
 	cp listings.svg ${SVG}
 
+# cleanup files from Wikitravel
 .PHONY : wt-clean
 wt-clean :
 	${RM} article.xml article.wiki wikitravel-print-rules.xml listings-all.xml listings.xml listings.txt overlay.svg *.html
 
+#cleanup files from openstreetmap
 .PHONY : osm-clean
 osm-clean : 
 	${RM} data.osm relation.xml rels.xml relid
 
+# cleanup everything
 .PHONY : clean
 clean : wt-clean osm-clean
 	${RM} index.scm map.svg listings.svg listings.png namednodes.txt unmatched.txt transform.log wikitravel-print-rules.xml Config.mk
 
+# scour
 .PHONY : dist-clean
 	${RM} *listings.png *listings.svg *.log Config.mk
-
-.PHONY : diff
-diff : article.wiki
-	gvimdiff -f article.wiki /home/mark/share/Wiki/travel/${ARTICLE}.wiki
 
 .PHONY : ding
 ding : map.svg ${SVG} unmatched.txt
