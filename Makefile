@@ -51,11 +51,6 @@ HEIGHT = $(if $(findstring portrait,$(ORIENTATION)),$(SHORT),$(LONG))
 
 PROVIDED_URL = $(call getval,osm_url,none)
 
-################################################################################
-
-empty:=
-space:= $(empty) $(empty)
-BORDER_VALUE = $(subst $(space),+,$(call getval,border))
 
 DING := $(shell if [ "${BELL}" != "no" ] ; then echo 'ding' ; else echo '' ; fi )
 PNG := $(subst /,_,${ARTICLE})_map_with_listings.png
@@ -63,15 +58,17 @@ SVG := $(subst /,_,${ARTICLE})_map_with_listings.svg
 OVERLAY := $(subst /,_,${ARTICLE})_overlay.svg
 
 
+################################################################################
+# RULES
+################################################################################
+
 # make the ultimate output files and optionally a noise
 all : map.svg ${SVG} unmatched.txt ${PNG} ${DING}
-
 
 
 # transform OSM data into an SVG
 map.svg : data.osm osmarender.xsl wikitravel-print-rules.xml
 	${XML} tr --net osmarender.xsl wikitravel-print-rules.xml > $@ 2> osmarender.log
-
 
 
 # store configuration from the command line
@@ -95,6 +92,9 @@ article.wiki : article.xml
 
 # get the list of relations matchine the border name 
 # *** (unless the article provides a URL) ***
+empty:=
+space:= $(empty) $(empty)
+BORDER_VALUE = $(subst $(space),+,$(call getval,border))
 RELS = $(if $(findstring none,$(PROVIDED_URL)),wget -q -O - "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]",echo)
 rels.xml : article.wiki
 	 ${RELS} > $@
@@ -117,7 +117,6 @@ listings-all.xml : article.wiki
 	echo '<listings>' > listings-all.xml
 	sed 's/&/\&amp;/g' < article.wiki >> listings-all.xml
 	echo '</listings>' >> listings-all.xml
-
 
 
 
@@ -148,8 +147,10 @@ data.osm : dataurl.xsl variables.xsl listings-all.xml relation.xml article.wiki
 # images which will download or (someday) upload from/to shared
 png_page.html : Config.mk
 	wget -q -O - http://wikitravel.org/shared/Image:${PNG} > $@
+
 overlay_page.html : Config.mk
 	wget -q -O - http://wikitravel.org/shared/Image:${OVERLAY} > $@
+
 svg_page.html : Config.mk
 	wget -q -O - http://wikitravel.org/shared/Image:${SVG} > $@
 
@@ -245,7 +246,7 @@ namednodes.txt : data.osm
 # find any listings which are not in the nodes list, and warn about them
 unmatched.txt : namednodes.txt listings.txt
 	grep -v -f $^ > $@ || /bin/true
-	if [ `wc -l $@` != "0" ] ; then echo "WARNING -  There are unmatched nodes in this article!" >&2 ; fi
+	@if [ `cat $@ | wc -l` != "0" ] ; then echo "WARNING -  There are unmatched nodes in this article!" >&2 ; fi
 
 
 # rename the generated layered SVG to keep (and eventually upload)
