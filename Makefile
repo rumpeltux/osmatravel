@@ -98,7 +98,12 @@ space:= $(empty) $(empty)
 BORDER_VALUE = $(subst $(space),+,$(call getval,border))
 RELS = $(if $(findstring none,$(PROVIDED_URL)),wget -q -O - "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]",echo)
 rels.xml : article.wiki
-	 ${RELS} > $@
+	$(if $(and $(findstring none,$(call getval,osm_url,none)),$(findstring none,$(call getval,border,none))),$(error ))
+	@if [ "$(call getval,osm_url)" = "" ] && [ "$(call getval,border)" = "" ]
+	@then
+	@	echo "You must configure either 'border' or 'osm_url' in the map image in your Wikitravel article." >&2
+	@fi
+	${RELS} > $@
 
 
 
