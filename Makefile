@@ -35,7 +35,6 @@ SHELL=/bin/bash
 XML = xmlstarlet
 LISTFILTER = listfilter.sh
 
-
 # Functions
 ################################################################################
 
@@ -99,10 +98,7 @@ BORDER_VALUE = $(subst $(space),+,$(call getval,border))
 RELS = $(if $(findstring none,$(PROVIDED_URL)),wget -q -O - "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]",echo)
 rels.xml : article.wiki
 	$(if $(and $(findstring none,$(call getval,osm_url,none)),$(findstring none,$(call getval,border,none))),$(error ))
-	@if [ "$(call getval,osm_url)" = "" ] && [ "$(call getval,border)" = "" ]
-	@then
-	@	echo "You must configure either 'border' or 'osm_url' in the map image in your Wikitravel article." >&2
-	@fi
+	@if [ "$(call getval,osm_url)" = "" ] && [ "$(call getval,border)" = "" ] ; then echo "You must configure either 'border' or 'osm_url' in the map image in your Wikitravel article." >&2 ; fi
 	${RELS} > $@
 
 
@@ -164,7 +160,7 @@ svg_page.html : Config.mk
 
 
 # Build the rules file
-wikitravel-print-rules.xml : icon_rules.xsl variables.xsl listings-all.xml relation.xml
+wikitravel-print-rules.xml : icon_rules.xsl variables.xsl listings-all.xml relation.xml style-*.xsl
 	${XML} tr icon_rules.xsl \
 		-s border="$(call getval,border)" \
 		-s listingsPlacement="$(call getval,listings_placement,auto)" \
@@ -179,13 +175,9 @@ wikitravel-print-rules.xml : icon_rules.xsl variables.xsl listings-all.xml relat
 
 # if the description page from the static overlay contains a current image
 # then fetch it, otherwise make a dummy overlay
+OVERLAY = $(if $(shell egrep -q '(current)' overlay_page.html),wget -q -O - http://wikitravel.org$(shell egrep '(current)' overlay_page.html | sed 's/.*href="\(\/upload\/[^"]*\).*/\1/') > $@,cp overlay_base.svg $@)
 overlay.svg : overlay_page.html
-	if egrep -q '(current)' overlay_page.html ;\
-	then \
-		wget -q -O - http://wikitravel.org$(shell egrep '(current)' overlay_page.html | sed 's/.*href="\(\/upload\/[^"]*\).*/\1/') > $@ ;\
-	else \
-		cp overlay_base.svg $@ ;\
-	fi
+	$(OVERLAY)
 
 
 
@@ -216,7 +208,8 @@ listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg 
 
 # use inkscape to convert the layered SVG file into a PNG
 listings.png : listings.svg
-	inkscape -z --export-png=listings.png -w $(WIDTH) -h $(HEIGHT) listings.svg >/dev/null 2>&1
+	inkscape -z --export-png=$@ -w $(WIDTH) -h $(HEIGHT) listings.svg >/dev/null 2>&1
+	#rasterizer -g $@ -w $(WIDTH) -h $(HEIGHT) -m image/png listings.svg
 
 
 
