@@ -199,6 +199,23 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                     </xsl:attribute>
                 </symbol>
             </rule>
+            <rule e="way" k="name:en|name" layer="5">
+                <xsl:attribute name="v">
+                    <xsl:value-of select="@name"/>
+                </xsl:attribute>
+                <areaSymbol width='2px' 
+                        height='2px'>
+                    <xsl:attribute name="transform">
+                        <xsl:text>translate(-1,-1) scale(</xsl:text>
+                        <xsl:value-of select="$zoomFactor * 1.1"/>
+                        <xsl:text>)</xsl:text>
+                    </xsl:attribute>
+                    <xsl:attribute name="xlink:href">
+                        <xsl:text>#see-</xsl:text>
+                        <xsl:value-of select="position()"/>
+                    </xsl:attribute>
+                </areaSymbol>
+            </rule>
         </xsl:for-each>
 
         <xsl:for-each select="/listings/sleep">

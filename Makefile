@@ -34,6 +34,7 @@ PAGE_DOUBLE_WIDTH = 3460
 SHELL=/bin/bash
 XML = xmlstarlet
 LISTFILTER = listfilter.sh
+INKSCAPE = /usr/bin/inkscape
 
 # Functions
 ################################################################################
@@ -67,7 +68,7 @@ all : map.svg ${SVG} unmatched.txt ${PNG} ${DING}
 
 
 # transform OSM data into an SVG
-map.svg : data.osm osmarender.xsl wikitravel-print-rules.xml
+map.svg : data.osm osmarender.xsl wikitravel-print-rules.xml warnings
 	${XML} tr --net osmarender.xsl wikitravel-print-rules.xml > $@ 2> osmarender.log
 
 
@@ -97,8 +98,7 @@ space:= $(empty) $(empty)
 BORDER_VALUE = $(subst $(space),+,$(call getval,border))
 RELS = $(if $(findstring none,$(PROVIDED_URL)),wget -q -O - "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]",echo)
 rels.xml : article.wiki
-	$(if $(and $(findstring none,$(call getval,osm_url,none)),$(findstring none,$(call getval,border,none))),$(error ))
-	@if [ "$(call getval,osm_url)" = "" ] && [ "$(call getval,border)" = "" ] ; then echo "You must configure either 'border' or 'osm_url' in the map image in your Wikitravel article." >&2 ; fi
+	$(if $(and $(findstring none,$(call getval,osm_url,none)),$(findstring none,$(call getval,border,none))),$(error You must configure either 'border' or 'osm_url' in the map image in your Wikitravel article.))
 	${RELS} > $@
 
 
@@ -172,12 +172,10 @@ wikitravel-print-rules.xml : icon_rules.xsl variables.xsl listings-all.xml relat
 
 
 
-
 # if the description page from the static overlay contains a current image
 # then fetch it, otherwise make a dummy overlay
-OVERLAY = $(if $(shell egrep -q '(current)' overlay_page.html),wget -q -O - http://wikitravel.org$(shell egrep '(current)' overlay_page.html | sed 's/.*href="\(\/upload\/[^"]*\).*/\1/') > $@,cp overlay_base.svg $@)
 overlay.svg : overlay_page.html
-	$(OVERLAY)
+	$(if $(shell grep '(current)' overlay_page.html),wget -q -O - http://wikitravel.org$(shell egrep '(current)' overlay_page.html | sed 's/.*href="\(\/upload\/[^"]*\).*/\1/') > $@,cp overlay_base.svg $@)
 
 
 
@@ -208,7 +206,7 @@ listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg 
 
 # use inkscape to convert the layered SVG file into a PNG
 listings.png : listings.svg
-	inkscape -z --export-png=$@ -w $(WIDTH) -h $(HEIGHT) listings.svg >/dev/null 2>&1
+	${INKSCAPE} -z --export-png=$@ -w $(WIDTH) -h $(HEIGHT) listings.svg >/dev/null 2>&1
 	#rasterizer -g $@ -w $(WIDTH) -h $(HEIGHT) -m image/png listings.svg
 
 
@@ -239,23 +237,32 @@ listings.txt : listings-all.xml
 # get a list of the named nodes in our OSM data
 namednodes.txt : data.osm
 	${XML} sel -T -t -m "//node/tag[@k='name']"  -v @v -n $< > $@
+	${XML} sel -T -t -m "//way/tag[@k='name']"  -v @v -n $< >> $@
 	${XML} sel -T -t -m "//node/tag[@k='name:en']"  -v @v -n $< >> $@
+	${XML} sel -T -t -m "//way/tag[@k='name:en']"  -v @v -n $< >> $@
+
 
 
 # find any listings which are not in the nodes list, and warn about them
 unmatched.txt : namednodes.txt listings.txt
 	grep -v -f $^ > $@ || /bin/true
-	@if [ `cat $@ | wc -l` != "0" ] ; then echo "WARNING -  There are unmatched nodes in this article!" >&2 ; fi
 
 
 # rename the generated layered SVG to keep (and eventually upload)
 ${SVG} : listings.svg
 	cp listings.svg ${SVG}
 
+
+# warn if anything is amis
+.PHONY : warnings
+warnings : unmatched.txt
+	@if [ `cat $< | wc -l` != "0" ] ; then echo "!!! WARNING !!! There are unmatched listings in this article!" >&2 ; fi
+	@cat $<
+
 # cleanup files from Wikitravel
 .PHONY : wt-clean
 wt-clean :
-	${RM} article.xml article.wiki wikitravel-print-rules.xml listings-all.xml listings.xml listings.txt overlay.svg *.html
+	${RM} article.xml article.wiki wikitravel-print-rules.xml listings-all.xml listings.xml listings.txt overlay.svg overlay_page.html
 
 #cleanup files from openstreetmap
 .PHONY : osm-clean
@@ -275,9 +282,9 @@ clean : wt-clean osm-clean
 ding : map.svg ${SVG} unmatched.txt
 	play -q bell.ogg
 
-.PHONY : adjustments
-adjustments : listings.svg
-	inkscape listings.svg
+.PHONY : adjustments 
+adjustments : listings.svg warnings
+	${INKSCAPE} listings.svg
 
 .DELETE_ON_ERROR : 
 
