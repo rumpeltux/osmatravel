@@ -34,7 +34,7 @@ PAGE_DOUBLE_WIDTH = 3460
 SHELL=/bin/bash
 XML = xmlstarlet
 LISTFILTER = listfilter.sh
-INKSCAPE = /usr/bin/inkscape
+INKSCAPE = ulimit -m unlimited ; /usr/bin/inkscape
 
 # Functions
 ################################################################################
@@ -68,7 +68,7 @@ all : map.svg ${SVG} unmatched.txt ${PNG} ${DING}
 
 
 # transform OSM data into an SVG
-map.svg : data.osm osmarender.xsl wikitravel-print-rules.xml warnings
+map.svg : data.osm osmarender.xsl wikitravel-print-rules.xml 
 	${XML} tr --net osmarender.xsl wikitravel-print-rules.xml > $@ 2> osmarender.log
 
 
@@ -279,7 +279,7 @@ clean : wt-clean osm-clean
 	${RM} *listings.png *listings.svg *.log Config.mk
 
 .PHONY : ding
-ding : map.svg ${SVG} unmatched.txt
+ding : map.svg ${SVG} unmatched.txt warnings
 	play -q bell.ogg
 
 .PHONY : adjustments 
