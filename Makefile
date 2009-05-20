@@ -96,7 +96,7 @@ article.wiki : article.xml
 empty:=
 space:= $(empty) $(empty)
 BORDER_VALUE = $(subst $(space),+,$(call getval,border))
-RELS = $(if $(findstring none,$(PROVIDED_URL)),wget -q -O - "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]",echo)
+RELS = $(if $(and $(findstring none,$(call getval,relid,none)), $(findstring none,$(PROVIDED_URL))),wget -q -O - "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]",echo)
 rels.xml : article.wiki
 	$(if $(and $(findstring none,$(call getval,osm_url,none)),$(findstring none,$(call getval,border,none))),$(error You must configure either 'border' or 'osm_url' in the map image in your Wikitravel article.))
 	${RELS} > $@
@@ -105,7 +105,7 @@ rels.xml : article.wiki
 
 # get the specific border relation for the covered area
 # *** (unless the article provides a URL) ***
-RELID = $(shell ${XML} sel -t -m "/osm" -v "relation[tag/@k = 'Is_In' and tag/@v = '$(call getval,is_in)']/@id" rels.xml)
+RELID = $(if $(call getval,relid),$(call getval,relid),$(shell ${XML} sel -t -m "/osm" -v "relation[tag/@k = 'Is_In' and tag/@v = '$(call getval,is_in)']/@id" rels.xml))
 RELATION = $(if $(findstring none,$(PROVIDED_URL)),wget -q -O - "http://openstreetmap.org/api/0.6/relation/${RELID}/full",echo)
 relation.xml : rels.xml
 	${RELATION} > $@
