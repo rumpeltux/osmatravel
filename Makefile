@@ -27,35 +27,36 @@ endif
 
 PAGE_WIDTH = 1730
 PAGE_HEIGHT = 3008
-PAGE_DOUBLE_WIDTH = 3460
-
+BELL = yes
 
 # Programs
 SHELL=/bin/bash
 XML = xmlstarlet
 LISTFILTER = listfilter.sh
 INKSCAPE = /usr/bin/inkscape
+PYTHON = /usr/bin/python
+UPLOAD = /usr/local/share/pywikipedia/upload.py
 
 # Functions
 ################################################################################
 
-getval = $(shell if egrep -q '\[\[Image:.*$(1)=' article.wiki ; then egrep '\[\[Image:.*$(1)=' article.wiki | sed 's/.*$(1)=\([^|]*\)|.*/\1/' ; else echo $(2) ; fi )
+getval = $(shell if egrep -q '\[\[Image:.*\|$(1)=' article.wiki ; then egrep '\[\[Image:.*\|$(1)=' article.wiki | sed 's/.*|$(1)=\([^|]*\)|.*/\1/' ; else echo $(2) ; fi )
 
 SIZE  = $(call getval,size,two-page)
 ORIENTATION = $(call getval,orientation,landscape)
 
-LONG  = $(if $(findstring two-page,$(SIZE)),$(PAGE_DOUBLE_WIDTH),${PAGE_HEIGHT})
+LONG  = $(if $(findstring two-page,$(SIZE)),$(shell echo $$((2 * ${PAGE_WIDTH}))),${PAGE_HEIGHT})
 SHORT =  $(if $(findstring two-page,$(SIZE)),${PAGE_HEIGHT},${PAGE_WIDTH})
 
 WIDTH = $(if $(findstring landscape,$(ORIENTATION)),$(LONG),$(SHORT))
-HEIGHT = $(if $(findstring portrait,$(ORIENTATION)),$(SHORT),$(LONG))
+HEIGHT = $(if $(findstring landscape,$(ORIENTATION)),$(SHORT),$(LONG))
 
 PROVIDED_URL = $(call getval,osm_url,none)
-
 
 DING := $(shell if [ "${BELL}" != "no" ] ; then echo 'ding' ; else echo '' ; fi )
 PNG := $(subst /,_,${ARTICLE})_map_with_listings.png
 SVG := $(subst /,_,${ARTICLE})_map_with_listings.svg
+SVGZ := $(subst /,_,${ARTICLE})_map_with_listings.svg
 OVERLAY := $(subst /,_,${ARTICLE})_overlay.svg
 
 
@@ -75,8 +76,6 @@ map.svg : data.osm osmarender.xsl wikitravel-print-rules.xml
 # store configuration from the command line
 Config.mk :
 	echo ARTICLE = $(ARTICLE) > $@
-	echo BELL = $(BELL) >> $@
-
 
 
 # fetch the specified article
@@ -185,7 +184,7 @@ listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg 
 		-s size="$(call getval,size,two-page)" \
 		-s rulesfile="wikitravel-print-rules.xml" \
 		-s listingsPlacement="$(call getval,listings_placement,auto)" \
-		-s boxWidth="$(call getval,box_width)" \
+		-s boxWidth="$(call getval,box_width,70)" \
 		-s box1X="$(call getval,box1_x)" \
 		-s box1Y="$(call getval,box1_y)" \
 		-s box1Height="$(call getval,box1_h)" \
@@ -205,7 +204,6 @@ listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg 
 # use inkscape to convert the layered SVG file into a PNG
 listings.png : listings.svg
 	${INKSCAPE} -z --export-png=$@ -w $(WIDTH) -h $(HEIGHT) listings.svg >/dev/null 2>&1
-	#rasterizer -g $@ -w $(WIDTH) -h $(HEIGHT) -m image/png listings.svg
 
 
 
@@ -261,8 +259,10 @@ unmatched.svg : unmatched.xsl unmatched.xml map.svg
 
 
 # rename the generated layered SVG to keep (and eventually upload)
-${SVG} : listings.svg
+${SVGZ} : listings.svg
 	cp listings.svg ${SVG}
+	gzip ${SVG}
+	mv ${SVG}.gz $@
 
 
 # warn if anything is amis
@@ -297,6 +297,20 @@ ding : map.svg ${SVG} unmatched.txt warnings
 .PHONY : adjustments 
 adjustments : listings.svg warnings
 	${INKSCAPE} listings.svg
+
+.PHONY : svg
+svg : ${SVG}
+
+.PHONY : svg
+png : ${PNG}
+
+.PHONY : upload-svg
+upload-svg : ${SVGZ}
+	${PYTHON} ${UPLOAD} -keep -noverify ${SVGZ} >/dev/null 2>&1
+
+.PHONY : upload-png
+upload-png : ${PNG}
+	${PYTHON} ${UPLOAD} -keep -noverify ${PNG} >/dev/null 2>&1
 
 .DELETE_ON_ERROR : 
 
