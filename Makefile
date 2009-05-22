@@ -34,7 +34,7 @@ PAGE_DOUBLE_WIDTH = 3460
 SHELL=/bin/bash
 XML = xmlstarlet
 LISTFILTER = listfilter.sh
-INKSCAPE = ulimit -m unlimited ; /usr/bin/inkscape
+INKSCAPE = /usr/bin/inkscape
 
 # Functions
 ################################################################################
@@ -123,10 +123,8 @@ listings-all.xml : article.wiki
 
 
 # strip out any unmatched listings
-# FIXME: maybe it would be better to throw an exception here
 listings.xml : listings-all.xml unmatched.txt
-	${XML} ed -d "`sh ${LISTFILTER} | sed -e 's/_/ /g' -e 's/\"/\\\"/g'`" listings-all.xml > $@
-
+	$(if $(shell cat unmatched.txt),${XML} ed -d "`sh ${LISTFILTER} | sed -e 's/_/ /g' -e 's/\"/\\\"/g'`" listings-all.xml > $@,cp listings-all.xml $@)
 
 
 
@@ -181,7 +179,7 @@ overlay.svg : overlay_page.html
 
 # create a listings box layer, sandwiching it between the previously
 # generated map.svg and the downloaded or generated overlay.svg
-listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg overlay.svg 
+listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg overlay.svg unmatched.svg
 	${XML} tr listings_box.xsl \
 		-s orientation="$(call getval,orientation,landscape)" \
 		-s size="$(call getval,size,two-page)" \
@@ -248,6 +246,20 @@ unmatched.txt : namednodes.txt listings.txt
 	grep -v -f $^ > $@ || /bin/true
 
 
+# convert the list of unmatched listings to XML so we can read it with XSL 1.1
+unmatched.xml : unmatched.txt
+	echo '<listings>' > $@
+	sed 's/.*/<listing>&<\/listing>/' $< >> $@
+	echo '</listings>' >> $@
+
+
+
+# create an xsl layer with the unmatched listings
+unmatched.svg : unmatched.xsl unmatched.xml map.svg
+	xmlstarlet tr unmatched.xsl map.svg > $@
+
+
+
 # rename the generated layered SVG to keep (and eventually upload)
 ${SVG} : listings.svg
 	cp listings.svg ${SVG}
@@ -256,7 +268,7 @@ ${SVG} : listings.svg
 # warn if anything is amis
 .PHONY : warnings
 warnings : unmatched.txt
-	@if [ `cat $< | wc -l` != "0" ] ; then echo "!!! WARNING !!! There are unmatched listings in this article!" >&2 ; fi
+	@$(if $(shell cat unmatched.txt),echo !!! WARNING !!! There are unmatched listings in this article! >&2)
 	@cat $<
 
 # cleanup files from Wikitravel

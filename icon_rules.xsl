@@ -31,7 +31,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:param name="minOffset" required="yes" select="78"/>
     <xsl:param name="cropMarginFactor" required="yes" select="0.04"/>
     <xsl:param name="zoomFactor" required="no" select="0.75"/>
-    <xsl:param name="attenuationFactor" required="no" select="6"/>
+    <xsl:param name="attenuationFactor" required="no" select="7"/>
 
     <xsl:include href="variables.xsl"/>
 
@@ -96,7 +96,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 <xsl:value-of select="$scale"/>
             </xsl:attribute>
             <xsl:attribute name="textAttenuation">
-                <xsl:value-of select="$attenuationFactor * $zoomFactor"/>
+                <xsl:value-of select="$attenuationFactor * $scale"/>
             </xsl:attribute>
             <xsl:attribute name="dataurl">
                 <xsl:value-of select="$dataurl"/>

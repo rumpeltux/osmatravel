@@ -69,8 +69,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     </xsl:variable>
 
     <xsl:variable name="map" select="document('map.svg')"/>
-
     <xsl:variable name="overlay" select="document('overlay.svg')"/>
+    <xsl:variable name="unmatched" select="document('unmatched.svg')"/>
 
     <xsl:template match="/">
         <svg:svg>
@@ -103,6 +103,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
             </xsl:choose>
             <xsl:if test="$overlay">
                 <xsl:copy-of select="$overlay/svg:svg/*"/>
+            </xsl:if>
+            <xsl:if test="$unmatched">
+                <xsl:copy-of select="$unmatched/svg:svg/*"/>
             </xsl:if>
         </svg:svg>
     </xsl:template>
