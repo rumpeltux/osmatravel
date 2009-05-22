@@ -56,7 +56,7 @@ PROVIDED_URL = $(call getval,osm_url,none)
 DING := $(shell if [ "${BELL}" != "no" ] ; then echo 'ding' ; else echo '' ; fi )
 PNG := $(subst /,_,${ARTICLE})_map_with_listings.png
 SVG := $(subst /,_,${ARTICLE})_map_with_listings.svg
-SVGZ := $(subst /,_,${ARTICLE})_map_with_listings.svg
+SVGZ := $(subst /,_,${ARTICLE})_map_with_listings.svgz
 OVERLAY := $(subst /,_,${ARTICLE})_overlay.svg
 
 
