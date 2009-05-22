@@ -40,7 +40,6 @@ UPLOAD = /usr/local/share/pywikipedia/upload.py
 # Functions
 ################################################################################
 
-getval = $(shell if egrep -q '\[\[Image:.*\|$(1)=' article.wiki ; then egrep '\[\[Image:.*\|$(1)=' article.wiki | sed 's/.*|$(1)=\([^|]*\)|.*/\1/' ; else echo $(2) ; fi )
 
 SIZE  = $(call getval,size,two-page)
 ORIENTATION = $(call getval,orientation,landscape)
@@ -59,6 +58,8 @@ SVG := $(subst /,_,${ARTICLE})_map_with_listings.svg
 SVGZ := $(subst /,_,${ARTICLE})_map_with_listings.svgz
 OVERLAY := $(subst /,_,${ARTICLE})_overlay.svg
 
+MAPLINE = $(shell egrep '\[\[Image:$(PNG)' article.wiki)
+getval = $(if $(MAPLINE),$(shell echo "$(MAPLINE)" | sed 's/.*|$(1)=\([^|]*\)|.*/\1/'),$(2))
 
 ################################################################################
 # RULES
@@ -151,7 +152,7 @@ overlay_page.html : Config.mk
 	wget -q -O - http://wikitravel.org/shared/Image:${OVERLAY} > $@
 
 svg_page.html : Config.mk
-	wget -q -O - http://wikitravel.org/shared/Image:${SVG} > $@
+	wget -q -O - http://wikitravel.org/shared/Image:${SVGZ} > $@
 
 
 
@@ -260,9 +261,7 @@ unmatched.svg : unmatched.xsl unmatched.xml map.svg
 
 # rename the generated layered SVG to keep (and eventually upload)
 ${SVGZ} : listings.svg
-	cp listings.svg ${SVG}
-	gzip ${SVG}
-	mv ${SVG}.gz $@
+	cat listings.svg | gzip > ${SVGZ}
 
 
 # warn if anything is amis
@@ -299,7 +298,7 @@ adjustments : listings.svg warnings
 	${INKSCAPE} listings.svg
 
 .PHONY : svg
-svg : ${SVG}
+svg : ${SVGZ}
 
 .PHONY : svg
 png : ${PNG}
