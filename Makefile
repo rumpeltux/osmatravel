@@ -58,15 +58,19 @@ SVG := $(subst /,_,${ARTICLE})_map_with_listings.svg
 SVGZ := $(subst /,_,${ARTICLE})_map_with_listings.svgz
 OVERLAY := $(subst /,_,${ARTICLE})_overlay.svg
 
-MAPLINE = $(shell egrep '\[\[Image:$(PNG)' article.wiki)
-getval = $(if $(MAPLINE),$(shell echo "$(MAPLINE)" | sed 's/.*|$(1)=\([^|]*\)|.*/\1/'),$(2))
+getval = $(shell if egrep -q '\[\[Image:.*\|$(1)=' article.wiki ;\
+				 then \
+				   	 egrep '\[\[Image:.*\|$(1)=' article.wiki | sed 's/.*|$(1)=\([^|]*\)|.*/\1/' ;\
+				 else \
+				   	 echo $(2) ;\
+				 fi )
 
 ################################################################################
 # RULES
 ################################################################################
 
 # make the ultimate output files and optionally a noise
-all : map.svg ${SVG} unmatched.txt ${PNG} ${DING}
+all : map.svg ${SVGZ} unmatched.txt ${PNG} ${DING}
 
 
 # transform OSM data into an SVG
