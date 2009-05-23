@@ -207,8 +207,13 @@ listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg 
 
 
 # use inkscape to convert the layered SVG file into a PNG
+TRANSFORM = "${INKSCAPE} -z --export-png=$@ -w $(WIDTH) -h $(HEIGHT) listings.svg"
 listings.png : listings.svg
-	${INKSCAPE} -z --export-png=$@ -w $(WIDTH) -h $(HEIGHT) listings.svg >/dev/null 2>&1
+	# For some reason Make clobbers inkscape's memory footprint so background this
+	killall inkscape || /bin/true # sorry, one inkscape at a time
+	echo "cd ${PWD} && ${TRANSFORM}" | at now
+	sleep 15
+	while pidof inkscape ; do sleep 15 ; done
 
 
 
@@ -294,12 +299,13 @@ clean : wt-clean osm-clean
 	${RM} *listings.png *listings.svg *.log Config.mk
 
 .PHONY : ding
-ding : map.svg ${SVG} unmatched.txt warnings
+ding : map.svg ${SVGZ} unmatched.txt warnings
 	play -q bell.ogg
 
 .PHONY : adjustments 
 adjustments : listings.svg warnings
-	${INKSCAPE} listings.svg
+	echo "DISPLAY=:0.0 ${INKSCAPE} ${PWD}/listings.svg" | at now
+	# inkscape will launch shortly; please stand by
 
 .PHONY : svg
 svg : ${SVGZ}
