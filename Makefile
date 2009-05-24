@@ -170,7 +170,7 @@ wikitravel-print-rules.xml : icon_rules.xsl variables.xsl listings-all.xml relat
 		-s minOffset="$(call getval,min_listings_box_size,65)" \
 		-s orientation="$(call getval,orientation,landscape)" \
 		-s size="$(call getval,size,two-page)" \
-		listings-all.xml > $@ 2> icon_rules.log
+		listings.xml > $@ 2> icon_rules.log
 
 
 
@@ -251,7 +251,7 @@ namednodes.txt : data.osm
 
 # find any listings which are not in the nodes list, and warn about them
 unmatched.txt : namednodes.txt listings.txt
-	grep -v -f $^ > $@ || /bin/true
+	grep -vx -f $^ > $@ || /bin/true
 
 
 # convert the list of unmatched listings to XML so we can read it with XSL 1.1
@@ -304,8 +304,10 @@ ding : map.svg ${SVGZ} unmatched.txt warnings
 
 .PHONY : adjustments 
 adjustments : listings.svg warnings
+	killall inkscape || /bin/true # sorry, one inkscape at a time
 	echo "DISPLAY=:0.0 ${INKSCAPE} ${PWD}/listings.svg" | at now
-	# inkscape will launch shortly; please stand by
+	@sleep 3
+	while ps u -C inkscape ; do sleep 15 ; done
 
 .PHONY : svg
 svg : ${SVGZ}

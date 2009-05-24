@@ -146,9 +146,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 </rule>
             </rule>
 
-            <rule e="node|way" k="osmarender:render" v="~|yes" layer="5">
-                <xsl:call-template name="icon-rules"  />
-            </rule>
+            <xsl:call-template name="icon-rules"  />
 
             <defs>
                 <xsl:call-template name="defs" />
@@ -181,7 +179,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 
     <xsl:template name="icon-rules">
 
-        <xsl:for-each select="/listings/see|do">
+        <xsl:for-each select="/listings/see|/listings/do">
             <rule e="node" k="name:en|name" layer="5">
                 <xsl:attribute name="v">
                     <xsl:value-of select="@name"/>
@@ -1278,7 +1276,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:include href="style-z16.xsl"/>
 
     <xsl:template name="see-do-symbol">
-        <xsl:for-each select="/listings/see|do">
+        <xsl:for-each select="/listings/see|/listings/do">
             <svg:symbol
                 class="icon-see">
                 <xsl:attribute name="id">
