@@ -40,6 +40,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns:exslt="http://exslt.org/common"
   xmlns:msxsl="urn:schemas-microsoft-com:xslt"
+  xmlns:labels="http://openstreetmap.org/osmarender-labels-rtf"
+  xmlns:z="http://openstreetmap.org/osmarender-z-rtf"
   exclude-result-prefixes="exslt msxsl" 
   version="1.0">
 
@@ -60,6 +62,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   <xsl:param name="scale" select="/rules/@scale"/>
   <xsl:param name="symbolScale" select="/rules/@symbolScale"/>
   <xsl:param name='textAttenuation' select='/rules/@textAttenuation'/>
+  <!-- TODO: Implement withOSMLayers again -->
   <xsl:param name="withOSMLayers" select="/rules/@withOSMLayers"/>
   <xsl:param name="svgBaseProfile" select="/rules/@svgBaseProfile"/>
   <xsl:param name="symbolsDir" select="/rules/@symbolsDir"/>
@@ -70,12 +73,20 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   <xsl:param name="showLicense" select="/rules/@showLicense"/>
 
   <xsl:param name="showRelationRoute" select="/rules/@showRelationRoute"/>
-  <xsl:param name="showRelationBoundary" select="/rules/@showRelationBoundary"/>
+
+  <xsl:param name="meter2pixelFactor" select="/rules/@meter2pixel"/>
+
+  <xsl:param name="minlat"/>
+  <xsl:param name="maxlat"/>
+  <xsl:param name="minlon"/>
+  <xsl:param name="maxlon"/>
+
 
   <xsl:key name="nodeById" match="/osm/node" use="@id"/>
   <xsl:key name="wayById" match="/osm/way" use="@id"/>
   <xsl:key name="wayByNode" match="/osm/way" use="nd/@ref"/>
   <xsl:key name="relationByWay" match="/osm/relation" use="member/@ref"/>
+  <xsl:key name="relationById" match="/osm/relation" use="@id"/>
 
   <xsl:variable name="data" select="document($osmfile)"/>
 
@@ -87,7 +98,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         <xsl:value-of select="substring($now/date/utc/@stamp,1,10)" />
         <!-- Assumes 4 digit year -->
       </xsl:when>
-      <xsl:otherwise>2007-01-01</xsl:otherwise>
+      <xsl:otherwise>2009-01-01</xsl:otherwise>
     </xsl:choose>
   </xsl:variable>
   <xsl:variable name="year">
@@ -95,7 +106,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
       <xsl:when test="$now">
         <xsl:value-of select="$now/date/utc/year" />
       </xsl:when>
-      <xsl:otherwise>2007</xsl:otherwise>
+      <xsl:otherwise>2009</xsl:otherwise>
     </xsl:choose>
   </xsl:variable>
 
@@ -133,88 +144,116 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     </xsl:choose>
   </xsl:variable>
 
-  <!-- Calculate the size of the bounding box based on the file content -->
-  <xsl:variable name="bllat">
-    <xsl:for-each select="$data/osm/node/@lat">
-      <xsl:sort data-type="number" order="ascending"/>
-      <xsl:if test="position()=1">
-        <xsl:value-of select="."/>
-      </xsl:if>
-    </xsl:for-each>
-  </xsl:variable>
-  <xsl:variable name="bllon">
-    <xsl:for-each select="$data/osm/node/@lon">
-      <xsl:sort data-type="number" order="ascending"/>
-      <xsl:if test="position()=1">
-        <xsl:value-of select="."/>
-      </xsl:if>
-    </xsl:for-each>
-  </xsl:variable>
-  <xsl:variable name="trlat">
-    <xsl:for-each select="$data/osm/node/@lat">
-      <xsl:sort data-type="number" order="descending"/>
-      <xsl:if test="position()=1">
-        <xsl:value-of select="."/>
-      </xsl:if>
-    </xsl:for-each>
-  </xsl:variable>
-  <xsl:variable name="trlon">
-    <xsl:for-each select="$data/osm/node/@lon">
-      <xsl:sort data-type="number" order="descending"/>
-      <xsl:if test="position()=1">
-        <xsl:value-of select="."/>
-      </xsl:if>
-    </xsl:for-each>
-  </xsl:variable>
+  <!-- Calculate bounding box.
+       Use the first given of min/max lat/lon parameters, bounds element from rules,
+       bounds elements from data or fallback to calculating based on file content -->
+
   <xsl:variable name="bottomLeftLatitude">
     <xsl:choose>
+      <xsl:when test="$minlat">
+        <xsl:value-of select="$minlat"/>
+      </xsl:when>
       <xsl:when test="/rules/bounds">
         <xsl:value-of select="/rules/bounds/@minlat"/>
       </xsl:when>
       <xsl:when test="$data/osm/bounds">
-        <xsl:value-of select="$data/osm/bounds/@minlat"/>
+        <xsl:for-each select="$data/osm/bounds/@minlat">
+          <xsl:sort data-type="number" order="ascending"/>
+          <xsl:if test="position()=1">
+            <xsl:value-of select="."/>
+          </xsl:if>
+        </xsl:for-each>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:value-of select="$bllat"/>
+        <xsl:for-each select="$data/osm/node/@lat">
+          <xsl:sort data-type="number" order="ascending"/>
+          <xsl:if test="position()=1">
+            <xsl:value-of select="."/>
+          </xsl:if>
+        </xsl:for-each>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:variable>
   <xsl:variable name="bottomLeftLongitude">
     <xsl:choose>
+      <xsl:when test="$minlon">
+        <xsl:value-of select="$minlon"/>
+      </xsl:when>
       <xsl:when test="/rules/bounds">
-        <xsl:value-of select="/rules/bounds/@minlon"/>
+        <xsl:for-each select="$data/osm/bounds/@minlon">
+          <xsl:sort data-type="number" order="ascending"/>
+          <xsl:if test="position()=1">
+            <xsl:value-of select="."/>
+          </xsl:if>
+        </xsl:for-each>
       </xsl:when>
       <xsl:when test="$data/osm/bounds">
-        <xsl:value-of select="$data/osm/bounds/@minlon"/>
+        <xsl:for-each select="$data/osm/bounds/@minlon">
+          <xsl:sort data-type="number" order="ascending"/>
+          <xsl:if test="position()=1">
+            <xsl:value-of select="."/>
+          </xsl:if>
+        </xsl:for-each>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:value-of select="$bllon"/>
+        <xsl:for-each select="$data/osm/node/@lon">
+          <xsl:sort data-type="number" order="ascending"/>
+          <xsl:if test="position()=1">
+            <xsl:value-of select="."/>
+          </xsl:if>
+        </xsl:for-each>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:variable>
   <xsl:variable name="topRightLatitude">
     <xsl:choose>
+      <xsl:when test="$maxlat">
+        <xsl:value-of select="$maxlat"/>
+      </xsl:when>
       <xsl:when test="/rules/bounds">
         <xsl:value-of select="/rules/bounds/@maxlat"/>
       </xsl:when>
       <xsl:when test="$data/osm/bounds">
-        <xsl:value-of select="$data/osm/bounds/@maxlat"/>
+        <xsl:for-each select="$data/osm/bounds/@maxlat">
+          <xsl:sort data-type="number" order="descending"/>
+          <xsl:if test="position()=1">
+            <xsl:value-of select="."/>
+          </xsl:if>
+        </xsl:for-each>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:value-of select="$trlat"/>
+        <xsl:for-each select="$data/osm/node/@lat">
+          <xsl:sort data-type="number" order="descending"/>
+          <xsl:if test="position()=1">
+            <xsl:value-of select="."/>
+          </xsl:if>
+        </xsl:for-each>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:variable>
   <xsl:variable name="topRightLongitude">
     <xsl:choose>
+      <xsl:when test="$maxlon">
+        <xsl:value-of select="$maxlon"/>
+      </xsl:when>
       <xsl:when test="/rules/bounds">
         <xsl:value-of select="/rules/bounds/@maxlon"/>
       </xsl:when>
       <xsl:when test="$data/osm/bounds">
-        <xsl:value-of select="$data/osm/bounds/@maxlon"/>
+        <xsl:for-each select="$data/osm/bounds/@maxlon">
+          <xsl:sort data-type="number" order="descending"/>
+          <xsl:if test="position()=1">
+            <xsl:value-of select="."/>
+          </xsl:if>
+        </xsl:for-each>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:value-of select="$trlon"/>
+        <xsl:for-each select="$data/osm/node/@lon">
+          <xsl:sort data-type="number" order="descending"/>
+          <xsl:if test="position()=1">
+            <xsl:value-of select="."/>
+          </xsl:if>
+        </xsl:for-each>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:variable>
@@ -257,7 +296,84 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   <xsl:variable name="width" select="($documentWidth div 2) + ($dataWidth div 2)"/>
   <xsl:variable name="height" select="($documentHeight div 2) + ($dataHeight div 2)"/>
 
+  <xsl:variable name="symbols">
 
+    <xsl:variable name="allSymbols">
+
+       <xsl:if test="$symbolsDir != ''">
+         <!-- Get all symbols mentioned in the rules file from the symbolsDir -->
+         <xsl:for-each select="/rules//symbol/@ref | /rules//areaSymbol/@ref">
+           <xsl:variable name="symbolName" select="."/>
+           <xsl:variable name="file" select="document(concat($symbolsDir,'/', $symbolName, '.svg'))"/>
+
+           <xsl:choose>
+             <xsl:when test="$file/svg:svg/svg:defs/svg:symbol">
+               <symbol>
+                 <xsl:copy-of select="$file/svg:svg/svg:defs/svg:symbol/@*"/>
+                 <xsl:copy-of select="$file/svg:svg/svg:defs/svg:symbol/*"/>
+               </symbol>
+             </xsl:when>
+             <xsl:otherwise>
+               <symbol>
+                 <xsl:copy-of select="$file/svg:svg/@*"/>
+                 <xsl:attribute name="id">
+                   <xsl:value-of select="concat('symbol-', $symbolName)"/>
+                 </xsl:attribute>
+                 <xsl:copy-of select="$file/svg:svg/*"/>
+              </symbol>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:for-each>
+      </xsl:if>
+
+      <xsl:for-each select="/rules/defs/svg:svg">
+        <symbol>
+          <xsl:copy-of select="@*"/>
+          <xsl:copy-of select="*"/>
+        </symbol>
+      </xsl:for-each>
+      <xsl:copy-of select="/rules/defs/svg:symbol"/>
+    </xsl:variable>
+
+
+    <xsl:for-each select="exslt:node-set($allSymbols)/svg:symbol">
+      <xsl:sort select="@id"/>
+
+      <xsl:variable name="prev" select="preceding-sibling::svg:symbol[position()=1]"/>
+
+      <xsl:if test="not($prev) or $prev/@id != @id">
+        <xsl:copy-of select="."/>
+      </xsl:if>
+    </xsl:for-each>
+
+  </xsl:variable>
+
+  <xsl:variable name="labels" xmlns="http://openstreetmap.org/osmarender-labels-rtf">
+    <xsl:for-each select="$data/osm/relation[tag[@k='type' and @v='label']]">
+      <xsl:choose>
+        <xsl:when test="count(member[@role='object']) = 0"/>
+        <xsl:when test="count(member[@role='object']) = 1">
+          <area id="{member[@role='object']/@ref}">
+            <xsl:for-each select="member[@role='label']">
+              <label ref="{@ref}"/>
+            </xsl:for-each>
+          </area>
+        </xsl:when>
+        <xsl:otherwise>
+          <area id="{member[@role='object'][1]/@ref}">
+            <xsl:for-each select="member[@role='label']">
+              <label ref="{@ref}"/>
+            </xsl:for-each>
+          </area>
+          <area id="{member[@role='object'][position() != 1]/@ref}"/>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:for-each>
+  </xsl:variable>
+  
+  <xsl:variable name="instructionZIndex" xmlns="http://openstreetmap.org/osmarender-z-rtf">
+	  <instruction name="text" relative="true" value="1"/>
+  </xsl:variable>
 
   <!-- Main template -->
   <xsl:template match="/rules">
@@ -298,18 +414,18 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 
       <defs id="defs-rulefile">
         <!-- Get any <defs> and styles from the rules file -->
-        <xsl:copy-of select="defs/*"/>
+        <xsl:copy-of select="defs/*[local-name() != 'svg' and local-name() != 'symbol']"/>
       </defs>
-
-
-      <xsl:if test="$symbolsDir != ''">
-        <!-- Get all symbols mentioned in the rules file from the symbolsDir -->
-        <defs id="defs-symbols">
-          <xsl:for-each select="/rules//symbol/@ref">
-            <xsl:copy-of select="document(concat($symbolsDir,'/', ., '.svg'))/svg:svg/svg:defs/svg:symbol"/>
-          </xsl:for-each>
-        </defs>
-      </xsl:if>
+      <!-- Symbols -->
+      <defs id="defs-symbols">
+        <xsl:copy-of select="$symbols"/>
+      </defs>
+      <!-- Included defs -->
+      <defs id="defs-included">
+        <xsl:for-each select="//include">
+          <xsl:copy-of select="document(@ref)/svg:svg/*"/>
+        </xsl:for-each>
+      </defs>
 
       <!-- Pre-generate named path definitions for all ways -->
       <xsl:variable name="allWays" select="$data/osm/way"/>
@@ -393,6 +509,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:param name='instruction' />
     <xsl:param name='pathId'/>
     <xsl:param name='extraClasses'/>
+    <xsl:param name='extraStyles'/>
 
     <xsl:variable name="maskId" select="concat('mask_',$pathId)"/>
 
@@ -416,6 +533,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         <xsl:attribute name="mask">url(#<xsl:value-of select="$maskId"/>)</xsl:attribute>
       </xsl:if>
       <xsl:call-template name="getSvgAttributesFromOsmTags"/>
+      <!-- Add additional style definitions if set -->
+      <xsl:if test="string($extraStyles) != ''">
+        <xsl:attribute name="style">
+          <xsl:value-of select="$extraStyles"/>
+        </xsl:attribute> 
+      </xsl:if>
     </use>
   </xsl:template>
 
@@ -443,7 +566,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:param name="instruction"/>
     <xsl:param name="way"/>
     <!-- The current way element if applicable -->
-    <xsl:param name="layer"/>
+
+   	<xsl:variable name="layer">
+		<xsl:choose>
+			<xsl:when test="$way/tag[@k='layer']">
+				<xsl:value-of select="$way/tag[@k='layer']/@v"/>
+			</xsl:when>
+			<xsl:otherwise>0</xsl:otherwise>
+		</xsl:choose>
+	</xsl:variable>
+
 
     <xsl:variable name="extraClasses">
       <xsl:if test="$instruction/@suppress-markers-tag != ''">
@@ -460,20 +592,94 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
       </xsl:if>
     </xsl:variable>
 
+    <xsl:variable name='extraStyles'>
+      <!-- honor-width feature
+           
+           If current instruction has 'honor-width' set to 'yes', make use of the
+           way's 'width' tag by adding an extra 'style' attribute to current way
+           (setting stroke-width to a new value).
+      -->
+
+      <xsl:if test="$instruction/@honor-width = 'yes'">
+        <!-- Get minimum width, use default of '0.1' if not set -->
+        <xsl:variable name='minimumWayWidth'>
+          <xsl:choose>
+            <xsl:when test='$instruction/@minimum-width'><xsl:value-of select='$instruction/@minimum-width'/></xsl:when>
+            <xsl:otherwise>0.1</xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
+
+        <!-- Get maximum width, use default of '100' if not set -->
+        <xsl:variable name='maximumWayWidth'>
+          <xsl:choose>
+            <xsl:when test='$instruction/@maximum-width'><xsl:value-of select='$instruction/@maximum-width'/></xsl:when>
+            <xsl:otherwise>100</xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
+
+        <xsl:variable name='givenWidth'>
+          <xsl:variable name='width'>
+            <xsl:choose>
+              <xsl:when test="contains($way/tag[@k = 'width']/@v, ' m')">
+                  <xsl:value-of select="substring-before($way/tag[@k = 'width']/@v, ' m')" />
+              </xsl:when>
+              <xsl:when test="contains($way/tag[@k = 'width']/@v, 'm')">
+                  <xsl:value-of select="substring-before($way/tag[@k = 'width']/@v, 'm')" />
+              </xsl:when>
+              <xsl:otherwise><xsl:value-of select="$way/tag[@k = 'width']/@v"/></xsl:otherwise>
+            </xsl:choose>
+          </xsl:variable>
+
+          <xsl:choose>
+            <xsl:when test='$width &lt; $minimumWayWidth'><xsl:value-of select='$minimumWayWidth'/></xsl:when>
+            <xsl:when test='$width &gt; $maximumWayWidth'><xsl:value-of select='$maximumWayWidth'/></xsl:when>
+            <xsl:otherwise><xsl:value-of select='$width'/></xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
+
+        <xsl:if test="number($givenWidth) &gt; 0">
+
+          <!-- Get scaling factor, use default of '1' (no scaling) if not set -->
+          <xsl:variable name='ScaleFactor'>
+            <xsl:choose>
+              <xsl:when test="$instruction/@width-scale-factor != ''">
+                <xsl:value-of select='$instruction/@width-scale-factor'/>
+              </xsl:when>
+              <xsl:otherwise>1</xsl:otherwise>
+            </xsl:choose>
+          </xsl:variable>
+
+          <!-- Set extraStyles' value -->
+          <xsl:if test="number($givenWidth) &gt; 0">
+            <xsl:choose>
+              <xsl:when test="number($meter2pixelFactor)">
+                <xsl:value-of select="concat('stroke-width:', ($ScaleFactor * $givenWidth * $meter2pixelFactor), 'px')"/>
+              </xsl:when>
+              <xsl:otherwise>
+                <xsl:value-of select="concat('stroke-width:', ($ScaleFactor * $givenWidth * 0.1375), 'px')"/>
+              </xsl:otherwise>
+            </xsl:choose>
+          </xsl:if>
+
+        </xsl:if>
+      </xsl:if>
+    </xsl:variable>
+
     <xsl:choose>
       <xsl:when test="$instruction/@smart-linecap='no'">
         <xsl:call-template name='drawPath'>
           <xsl:with-param name='pathId' select="concat('way_normal_',$way/@id)"/>
           <xsl:with-param name='instruction' select='$instruction'/>
           <xsl:with-param name="extraClasses" select='$extraClasses'/>
+          <xsl:with-param name="extraStyles" select='$extraStyles'/>
         </xsl:call-template>
       </xsl:when>
       <xsl:otherwise>
         <xsl:call-template name="drawWayWithSmartLinecaps">
           <xsl:with-param name="instruction" select="$instruction"/>
           <xsl:with-param name="way" select="$way"/>
-          <xsl:with-param name="layer" select="$layer"/>
           <xsl:with-param name="extraClasses" select='$extraClasses'/>
+          <xsl:with-param name="extraStyles" select='$extraStyles'/>
         </xsl:call-template>
       </xsl:otherwise>
     </xsl:choose>
@@ -484,8 +690,17 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:param name="instruction"/>
     <xsl:param name="way"/>
     <!-- The current way element if applicable -->
-    <xsl:param name="layer"/>
     <xsl:param name="extraClasses"/>
+    <xsl:param name="extraStyles"/>
+	
+	<xsl:variable name="layer">
+		<xsl:choose>
+			<xsl:when test="$way/tag[@k='layer']">
+				<xsl:value-of select="$way/tag[@k='layer']/@v"/>
+			</xsl:when>
+			<xsl:otherwise>0</xsl:otherwise>
+		</xsl:choose>
+	</xsl:variable>
 
     <!-- The first half of the first segment and the last half of the last segment are treated differently from the main
 			part of the way path.  The main part is always rendered with a butt line-cap.  Each end fragment is rendered with
@@ -499,6 +714,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         <xsl:with-param name='pathId' select="concat('way_mid_',$way/@id)"/>
         <xsl:with-param name='instruction' select='$instruction'/>
         <xsl:with-param name='extraClasses'>osmarender-stroke-linecap-butt osmarender-no-marker-start osmarender-no-marker-end</xsl:with-param>
+        <xsl:with-param name='extraStyles' select='$extraStyles'/>
       </xsl:call-template>
     </xsl:if>
 
@@ -523,6 +739,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
           <xsl:with-param name='pathId' select="concat('way_start_',$way/@id)"/>
           <xsl:with-param name='instruction' select='$instruction'/>
           <xsl:with-param name="extraClasses"><xsl:value-of select="$extraClasses"/> osmarender-no-marker-end</xsl:with-param>
+          <xsl:with-param name='extraStyles' select='$extraStyles'/>
         </xsl:call-template>
       </xsl:when>
       <xsl:when test="$firstNodeLowerLayerConnectionCount>0">
@@ -530,6 +747,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
           <xsl:with-param name='pathId' select="concat('way_start_',$way/@id)"/>
           <xsl:with-param name='instruction' select='$instruction'/>
           <xsl:with-param name="extraClasses"><xsl:value-of select="$extraClasses"/> osmarender-stroke-linecap-butt osmarender-no-marker-end</xsl:with-param>
+          <xsl:with-param name='extraStyles' select='$extraStyles'/>
         </xsl:call-template>
       </xsl:when>
       <xsl:otherwise>
@@ -537,6 +755,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
           <xsl:with-param name='pathId' select="concat('way_start_',$way/@id)"/>
           <xsl:with-param name='instruction' select='$instruction'/>
           <xsl:with-param name="extraClasses"><xsl:value-of select="$extraClasses"/>  osmarender-stroke-linecap-round osmarender-no-marker-end</xsl:with-param>
+          <xsl:with-param name='extraStyles' select='$extraStyles'/>
         </xsl:call-template>
       </xsl:otherwise>
 
@@ -563,6 +782,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
           <xsl:with-param name='pathId' select="concat('way_end_',$way/@id)"/>
           <xsl:with-param name='instruction' select='$instruction'/>
           <xsl:with-param name="extraClasses"><xsl:value-of select="$extraClasses"/> osmarender-no-marker-start</xsl:with-param>
+          <xsl:with-param name='extraStyles' select='$extraStyles'/>
         </xsl:call-template>
       </xsl:when>
       <xsl:when test="$lastNodeLowerLayerConnectionCount>0">
@@ -570,6 +790,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
           <xsl:with-param name='pathId' select="concat('way_end_',$way/@id)"/>
           <xsl:with-param name='instruction' select='$instruction'/>
           <xsl:with-param name="extraClasses"><xsl:value-of select="$extraClasses"/> osmarender-stroke-linecap-butt osmarender-no-marker-start</xsl:with-param>
+          <xsl:with-param name='extraStyles' select='$extraStyles'/>
         </xsl:call-template>
       </xsl:when>
       <xsl:otherwise>
@@ -577,6 +798,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
           <xsl:with-param name='pathId' select="concat('way_end_',$way/@id)"/>
           <xsl:with-param name='instruction' select='$instruction'/>
           <xsl:with-param name="extraClasses"><xsl:value-of select="$extraClasses"/> osmarender-stroke-linecap-round osmarender-no-marker-start</xsl:with-param>
+          <xsl:with-param name='extraStyles' select='$extraStyles'/>
         </xsl:call-template>
       </xsl:otherwise>
 
@@ -588,15 +810,63 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   <!-- Draw a circle for the current <node> element using the formatting of the current <circle> instruction -->
   <xsl:template name="drawCircle">
     <xsl:param name="instruction"/>
+    <xsl:param name="lat"><xsl:value-of select="@lat" /></xsl:param>
+    <xsl:param name="lon"><xsl:value-of select="@lon" /></xsl:param>
 
-    <xsl:variable name="x" select="($width)-((($topRightLongitude)-(@lon))*10000*$scale)"/>
-    <xsl:variable name="y" select="($height)+((($bottomLeftLatitude)-(@lat))*10000*$scale*$projection)"/>
+    <xsl:variable name="x" select="($width)-((($topRightLongitude)-($lon))*10000*$scale)"/>
+    <xsl:variable name="y" select="($height)+((($bottomLeftLatitude)-($lat))*10000*$scale*$projection)"/>
 
     <circle cx="{$x}" cy="{$y}">
       <xsl:apply-templates select="$instruction/@*" mode="copyAttributes"/>
       <!-- Copy all the svg attributes from the <circle> instruction -->
     </circle>
+  </xsl:template>
 
+  <xsl:template name="renderSymbol">
+    <xsl:param name="instruction"/>
+    <xsl:param name="lon"/>
+    <xsl:param name="lat"/>
+
+    <xsl:variable name="x" select="($width)-((($topRightLongitude)-($lon))*10000*$scale)"/>
+    <xsl:variable name="y" select="($height)+((($bottomLeftLatitude)-($lat))*10000*$scale*$projection)"/>
+
+    <xsl:variable name="symbol" select="exslt:node-set($symbols)/svg:symbol[@id=concat('symbol-',$instruction/@ref)]"/>
+
+    <xsl:variable name="useElement">
+      <use>
+        <xsl:if test="$instruction/@ref">
+          <xsl:attribute name="xlink:href">
+            <xsl:value-of select="concat('#symbol-', $instruction/@ref)"/>
+          </xsl:attribute>
+        </xsl:if>
+
+        <!-- Use symbol size by default  -->
+        <xsl:attribute name="width">
+          <xsl:value-of select="$symbol/@width"/>
+        </xsl:attribute>
+
+        <xsl:attribute name="height">
+          <xsl:value-of select="$symbol/@height"/>
+        </xsl:attribute>
+
+        <xsl:apply-templates select="$instruction/@*" mode="copyAttributes"/>
+	<!-- Copy all the attributes from the <symbol> instruction. Overwrite width and heigth if specified -->
+
+         <!-- Clear transform attribute. It's set later to <g> before symbolShift to make symbol centering work -->
+        <xsl:attribute name="transform"/>
+      </use>
+    </xsl:variable>
+
+    <!-- Move symbol based on position attribute -->
+    <xsl:variable name="symbolShift">
+      <xsl:if test="$instruction[@position='center']">
+        <xsl:value-of select="concat('translate(', -number(exslt:node-set($useElement)/svg:use/@width) div 2.0, ',', - number(exslt:node-set($useElement)/svg:use/@height) div 2.0, ')')"/>
+      </xsl:if>
+    </xsl:variable>
+
+    <g transform="translate({$x},{$y}) scale({$symbolScale}) {$instruction/@transform} {$symbolShift}">
+	<xsl:copy-of select="$useElement"/>
+    </g>
   </xsl:template>
 
 
@@ -604,29 +874,24 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   <xsl:template name="drawSymbol">
     <xsl:param name="instruction"/>
 
-    <xsl:variable name="x" select="($width)-((($topRightLongitude)-(@lon))*10000*$scale)"/>
-    <xsl:variable name="y" select="($height)+((($bottomLeftLatitude)-(@lat))*10000*$scale*$projection)"/>
+    <xsl:call-template name="renderSymbol">
+      <xsl:with-param name="instruction" select="$instruction"/>
+      <xsl:with-param name="lon" select="@lon"/>
+      <xsl:with-param name="lat" select="@lat"/>
+    </xsl:call-template>
 
-    <g transform="translate({$x},{$y}) scale({$symbolScale})">
-      <use>
-        <xsl:if test="$instruction/@ref">
-          <xsl:attribute name="xlink:href">
-            <xsl:value-of select="concat('#symbol-', $instruction/@ref)"/>
-          </xsl:attribute>
-        </xsl:if>
-        <xsl:apply-templates select="$instruction/@*" mode="copyAttributes"/>
-	<!-- Copy all the attributes from the <symbol> instruction -->
-      </use>
-    </g>
   </xsl:template>
 
 
   <!-- Render the appropriate attribute of the current <node> element using the formatting of the current <text> instruction -->
   <xsl:template name="renderText">
     <xsl:param name="instruction"/>
+    <xsl:param name="lon"/>
+    <xsl:param name="lat"/>
+    <xsl:param name="text"/>
 
-    <xsl:variable name="x" select="($width)-((($topRightLongitude)-(@lon))*10000*$scale)"/>
-    <xsl:variable name="y" select="($height)+((($bottomLeftLatitude)-(@lat))*10000*$scale*$projection)"/>
+    <xsl:variable name="x" select="($width)-((($topRightLongitude)-($lon))*10000*$scale)"/>
+    <xsl:variable name="y" select="($height)+((($bottomLeftLatitude)-($lat))*10000*$scale*$projection)"/>
 
     <text>
       <xsl:apply-templates select="$instruction/@*" mode="copyAttributes"/>
@@ -637,7 +902,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         <xsl:value-of select="$y"/>
       </xsl:attribute>
       <xsl:call-template name="getSvgAttributesFromOsmTags"/>
-      <xsl:value-of select="tag[@k=$instruction/@k]/@v"/>
+      <xsl:value-of select="$text"/>
     </text>
   </xsl:template>
 
@@ -805,15 +1070,59 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   </xsl:template>
 
 
-  <xsl:template name="renderArea">
-    <xsl:param name="instruction"/>
-    <xsl:param name="pathId"/>
 
-    <use xlink:href="#{$pathId}">
-      <xsl:apply-templates select="$instruction/@*" mode="copyAttributes"/>
-    </use>
-  </xsl:template>
+	<xsl:template match="line|area|symbol|areaSymbol|circle|wayMarker|text|areaText|caption|pathText">
+		<xsl:param name="elements"/>
+				
+		<xsl:variable name="instruction" select="."/>
+				
+		<xsl:for-each select="$elements">
+			<z:command>
+				<xsl:attribute name="layer">
+					<xsl:choose>
+						<xsl:when test="$instruction/@layer">
+							<xsl:value-of select="$instruction/@layer"/>
+						</xsl:when>
+						<xsl:when test="tag[@k='layer']">
+							<xsl:value-of select="tag[@k='layer']/@v"/>
+						</xsl:when>
+						<xsl:otherwise>0</xsl:otherwise>
+					</xsl:choose>
+				</xsl:attribute>
 
+				<xsl:attribute name="labels">
+					<xsl:value-of select="concat('|',local-name($instruction),'|',$instruction/@labels,'|')"/>
+				</xsl:attribute>
+
+				<z:instruction>
+					<xsl:copy-of select="$instruction"/>
+				</z:instruction>
+				<z:element id="{@id}" type="{local-name()}"/>
+			</z:command>
+		</xsl:for-each>
+	</xsl:template>
+
+	<xsl:template match="set-attribute">
+		<xsl:param name="elements"/>
+		
+		<!-- TODO: Don't save id's for global actions. It's a waste of memory -->
+		<z:set-attribute name="{@name}" value="{@value}" for-label="{concat('|',@for-label,'|')}">
+			<xsl:for-each select="$elements">
+				<z:element id="{@id}"/>
+			</xsl:for-each>
+		</z:set-attribute>
+	</xsl:template>
+
+	<xsl:template match="delete">
+		<xsl:param name="elements"/>
+		
+		<!-- TODO: Don't save id's for global actions. It's a waste of memory -->
+		<z:delete name="{@name}" value="{@value}" for-label="{concat('|',@for-label,'|')}">
+			<xsl:for-each select="$elements">
+				<z:element id="{@id}"/>
+			</xsl:for-each>
+		</z:delete>
+	</xsl:template>
 
   <!-- Templates to process line, circle, text, etc. instructions -->
   <!-- Each template is passed a variable containing the set of elements that need to
@@ -821,24 +1130,17 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
          these templates don't need to know anything about the rules context they are in. -->
 
   <!-- Process a <line> instruction -->
-  <xsl:template match="line">
+  <xsl:template match="line" mode="render">
     <xsl:param name="elements"/>
-    <xsl:param name="layer"/>
 
     <!-- This is the instruction that is currently being processed -->
     <xsl:variable name="instruction" select="."/>
 
-    <g>
-      <xsl:apply-templates select="@*" mode="copyAttributes" />
-      <!-- Add all the svg attributes of the <line> instruction to the <g> element -->
-
       <!-- For each way -->
-      <xsl:apply-templates select="$elements" mode="line">
-        <xsl:with-param name="instruction" select="$instruction"/>
-        <xsl:with-param name="layer" select="$layer"/>
-      </xsl:apply-templates>
+	  <xsl:apply-templates select="$elements" mode="line">
+		  <xsl:with-param name="instruction" select="$instruction"/>
+	  </xsl:apply-templates>
 
-    </g>
   </xsl:template>
 
 
@@ -849,18 +1151,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   <!-- Draw lines for a way  -->
   <xsl:template match="way" mode="line">
     <xsl:param name="instruction"/>
-    <xsl:param name="layer"/>
 
     <!-- The current <way> element -->
     <xsl:variable name="way" select="."/>
 
     <!-- DODI: !!!WORKAROUND!!! skip one node ways-->
     <xsl:if test="count($way/nd) &gt; 1">
-      <xsl:call-template name="drawWay">
-        <xsl:with-param name="instruction" select="$instruction"/>
-        <xsl:with-param name="way" select="$way"/>
-        <xsl:with-param name="layer" select="$layer"/>
-      </xsl:call-template>
+		<xsl:call-template name="drawWay">
+			<xsl:with-param name="instruction" select="$instruction"/>
+			<xsl:with-param name="way" select="$way"/>
+		</xsl:call-template>				
     </xsl:if >
   </xsl:template>
 
@@ -868,30 +1168,26 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   <!-- Draw lines for a relation -->
   <xsl:template match="relation" mode="line">
     <xsl:param name="instruction"/>
-    <xsl:param name="layer"/>
 
     <xsl:variable name="relation" select="@id"/>
-
-    <xsl:message>Processing route relation.</xsl:message>
 
     <xsl:if test="(tag[@k='type']/@v='route') and ($showRelationRoute!='~|no')">
       <!-- Draw lines for a RelationRoute -->
       <xsl:for-each select="$data/osm/relation[@id=$relation]/member[@type='way']">
         <xsl:variable name="wayid" select="@ref"/>
 
-        <xsl:for-each select="$data/osm/way[@id=$wayid]">
-          <!-- The current <way> element -->
-          <xsl:variable name="way" select="."/>
-
-          <!-- DODI: !!!WORKAROUND!!! skip one node ways-->
-          <xsl:if test="count($way/nd) &gt; 1">
-            <xsl:call-template name="drawWay">
-              <xsl:with-param name="instruction" select="$instruction"/>
-              <xsl:with-param name="way" select="$way"/>
-              <xsl:with-param name="layer" select="$layer"/>
-            </xsl:call-template>
-          </xsl:if >
-        </xsl:for-each >
+		<xsl:for-each select="$data/osm/way[@id=$wayid]">
+			<!-- The current <way> element -->
+			<xsl:variable name="way" select="."/>
+				
+			<!-- DODI: !!!WORKAROUND!!! skip one node ways-->
+			<xsl:if test="count($way/nd) &gt; 1">
+				<xsl:call-template name="drawWay">
+					<xsl:with-param name="instruction" select="$instruction"/>
+					<xsl:with-param name="way" select="$way"/>
+				</xsl:call-template>
+			</xsl:if >
+		</xsl:for-each >
       </xsl:for-each >
     </xsl:if>
 
@@ -899,26 +1195,18 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 
   </xsl:template>
 
-  <xsl:include href="boundary_relations.xsl"/>
 
   <!-- Process an <area> instruction -->
-  <xsl:template match="area">
+  <xsl:template match="area" mode="render">
     <xsl:param name="elements"/>
-
-    <xsl:message>Processing &lt;area&gt; for <xsl:value-of select="count($elements)"/> elements.</xsl:message>
 
     <!-- This is the instruction that is currently being processed -->
     <xsl:variable name="instruction" select="."/>
-
-    <g>
-      <xsl:apply-templates select="@*" mode="copyAttributes"/>
-      <!-- Add all the svg attributes of the <line> instruction to the <g> element -->
-
+	
       <!-- For each way -->
       <xsl:apply-templates select="$elements" mode="area">
         <xsl:with-param name="instruction" select="$instruction"/>
       </xsl:apply-templates>
-    </g>
   </xsl:template>
 
 
@@ -939,20 +1227,17 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     </xsl:variable>
 
     <!-- DODI: do now draw empty ways/areas-->
-    <xsl:if test ="$pathArea!=''">
-      <path id="area_{@id}" d="{$pathArea}"/>
-      <xsl:call-template name="renderArea">
-        <xsl:with-param name="instruction" select="$instruction"/>
-        <xsl:with-param name="pathId" select="concat('area_',@id)"/>
-      </xsl:call-template>
+    <xsl:if test ="$pathArea">
+		<path d="{$pathArea}" style="fill-rule:evenodd">
+			<xsl:apply-templates select="$instruction/@*" mode="copyAttributes"/>
+		</path>
     </xsl:if>
   </xsl:template>
 
 
   <!-- Process <circle> instruction -->
-  <xsl:template match="circle">
+  <xsl:template match="circle" mode="render">
     <xsl:param name="elements"/>
-    <xsl:param name="layer"/>
 
     <!-- This is the instruction that is currently being processed -->
     <xsl:variable name="instruction" select="."/>
@@ -960,7 +1245,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <!-- For each circle -->
     <xsl:apply-templates select="$elements" mode="circle">
       <xsl:with-param name="instruction" select="$instruction"/>
-      <xsl:with-param name="layer" select="$layer"/>
       <xsl:with-param name="elements" select="$elements"/>
     </xsl:apply-templates>
   </xsl:template>
@@ -976,18 +1260,38 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:param name="elements"/>
 
     <xsl:for-each select="$elements[name()='node']">
-      <xsl:call-template name="drawCircle">
-        <xsl:with-param name="instruction" select="$instruction"/>
-      </xsl:call-template>
+		<xsl:call-template name="drawCircle">
+			<xsl:with-param name="instruction" select="$instruction"/>
+		</xsl:call-template>				
+    </xsl:for-each>
+
+  </xsl:template>
+
+  <!-- Draw circle for a area -->
+  <xsl:template match="way" mode="circle">
+    <xsl:param name="instruction"/>
+    <xsl:param name="elements"/>
+
+    <xsl:for-each select="$elements[name()='way']">
+		<xsl:variable name='center'>
+			<xsl:call-template name="areaCenterWrapper">
+				<xsl:with-param name="element" select="." />
+			</xsl:call-template>
+		</xsl:variable>
+		<xsl:call-template name="drawCircle">
+			<xsl:with-param name="instruction" select="$instruction"/>
+			<xsl:with-param name="lon" select="substring-before($center, ',')"/>
+			<xsl:with-param name="lat" select="substring-after($center, ',')"/>
+		</xsl:call-template>
     </xsl:for-each>
 
   </xsl:template>
 
 
+
   <!-- Draw circle for a relation -->
   <xsl:template match="relation" mode="circle">
     <xsl:param name="instruction"/>
-    <xsl:param name="layer"/>
 
     <xsl:variable name="relation" select="@id"/>
 
@@ -997,10 +1301,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         <xsl:variable name="nodeid" select="@ref"/>
 
         <xsl:for-each select="$data/osm/node[@id=$nodeid]">
-          <xsl:call-template name="drawCircle">
-            <xsl:with-param name="instruction" select="$instruction"/>
-            <xsl:with-param name="node" select="@id"/>
-          </xsl:call-template>
+			<xsl:call-template name="drawCircle">
+				<xsl:with-param name="instruction" select="$instruction"/>
+				<xsl:with-param name="node" select="@id"/>
+			</xsl:call-template>					
         </xsl:for-each>
       </xsl:for-each>
     </xsl:if>
@@ -1011,32 +1315,33 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 
 
   <!-- Process a <symbol> instruction -->
-  <xsl:template match="symbol">
+  <xsl:template match="symbol" mode="render">
     <xsl:param name="elements"/>
 
     <!-- This is the instruction that is currently being processed -->
     <xsl:variable name="instruction" select="."/>
 
     <xsl:for-each select="$elements[name()='node']">
-      <xsl:call-template name="drawSymbol">
-        <xsl:with-param name="instruction" select="$instruction"/>
-      </xsl:call-template>
+		<xsl:call-template name="drawSymbol">
+			<xsl:with-param name="instruction" select="$instruction"/>
+		</xsl:call-template>
     </xsl:for-each>
+
+    <!-- Select all <way> elements -->
+    <xsl:apply-templates select="$elements[name()='way']" mode="areaSymbolPath">
+      <xsl:with-param name="instruction" select="$instruction"/>
+    </xsl:apply-templates>
 
   </xsl:template>
 
   <!-- wayMarker instruction.  Draws a marker on a node that is perpendicular to a way that passes through the node.
        If more than one way passes through the node then the result is a bit unspecified.  -->
-  <xsl:template match="wayMarker">
+  <xsl:template match="wayMarker" mode="render">
     <xsl:param name="elements"/>
     
     <!-- This is the instruction that is currently being processed -->
     <xsl:variable name="instruction" select="."/>
-    
-    <g>
-      <!-- Add all the svg attributes of the <wayMarker> instruction to the <g> element -->
-      <xsl:apply-templates select="@*" mode="copyAttributes" />
-      
+          
       <!-- Process each matched node in turn -->
       <xsl:for-each select="$elements[name()='node']">
 	<xsl:variable name='nodeId' select="@id" />
@@ -1085,18 +1390,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 	  </xsl:choose>
 	</xsl:variable>
 	
-	<path id="nodePath_{@id}" d="{$path}"/>
-	
-	<use xlink:href="#nodePath_{@id}">
-	  <xsl:apply-templates select="$instruction/@*" mode="copyAttributes" />
-	</use>
-      </xsl:for-each>
-    </g>
+	<path d="{$path}">
+		<xsl:apply-templates select="$instruction/@*" mode="copyAttributes" />
+	</path>			
+	</xsl:for-each>
     
   </xsl:template>
 
-  <!-- Process an <areaText> instruction -->
-  <xsl:template match="areaText">
+  <!-- Process an <caption> instruction -->
+  <xsl:template match="areaText|caption" mode="render">
     <xsl:param name="elements"/>
 
     <!-- This is the instruction that is currently being processed -->
@@ -1106,6 +1408,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:apply-templates select="$elements[name()='way'][tag[@k=$instruction/@k]]" mode="areaTextPath">
       <xsl:with-param name="instruction" select="$instruction"/>
     </xsl:apply-templates>
+	<!-- Select all <node> elements that have a key that matches the k attribute of the text instruction -->
+	<xsl:for-each select="$elements[name()='node'][tag[@k=$instruction/@k]]">
+		<xsl:call-template name="renderText">
+			<xsl:with-param name="instruction" select="$instruction"/>
+			<xsl:with-param name="lon" select="@lon"/>
+			<xsl:with-param name="lat" select="@lat"/>
+			<xsl:with-param name="text" select="tag[@k=$instruction/@k]/@v"/>
+		</xsl:call-template>
+    </xsl:for-each>
   </xsl:template>
 
 
@@ -1129,33 +1440,53 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   <xsl:template name="renderAreaText">
     <xsl:param name="instruction"/>
 
-    <xsl:variable name='center'>
-      <xsl:call-template name="areaCenter">
-	<xsl:with-param name="element" select="." />
-      </xsl:call-template>
-    </xsl:variable>
+    <xsl:variable name="element" select="."/>
+    <xsl:variable name="areaLabels" select="exslt:node-set($labels)/labels:area[@id = $element/@id]"/>
+    <xsl:variable name="text" select="tag[@k=$instruction/@k]/@v"/>
+   
+	<xsl:choose>
+		<xsl:when test="$areaLabels">
+			<xsl:for-each select="$areaLabels/labels:label">
+				<xsl:variable name="label" select="."/>
+				<xsl:for-each select="$data">
+					<xsl:call-template name="renderText">
+						<xsl:with-param name="instruction" select="$instruction"/>
+						<xsl:with-param name="lon" select="key('nodeById', $label/@ref)/@lon"/>
+						<xsl:with-param name="lat" select="key('nodeById', $label/@ref)/@lat"/>
+						<xsl:with-param name="text" select="$text"/>
+					</xsl:call-template>
+				</xsl:for-each>
+			</xsl:for-each>
+		</xsl:when>
 
-    <xsl:variable name="centerLon" select="substring-before($center, ',')" />
-    <xsl:variable name="centerLat" select="substring-after($center, ',')" />
+		<xsl:otherwise>
+			<xsl:variable name='center'>
+				<xsl:call-template name="areaCenterWrapper">
+					<xsl:with-param name="element" select="." />
+				</xsl:call-template>
+			</xsl:variable>
 
-    <xsl:variable name="x" select="($width)-((($topRightLongitude)-($centerLon))*10000*$scale)"/>
-    <xsl:variable name="y" select="($height)+((($bottomLeftLatitude)-($centerLat))*10000*$scale*$projection)"/>
+			<xsl:message>
+				areaCenter: <xsl:value-of select="$center" />
+			</xsl:message>
 
-    <text>
-      <xsl:apply-templates select="$instruction/@*" mode="copyAttributes"/>
-      <xsl:attribute name="x">
-        <xsl:value-of select="$x"/>
-      </xsl:attribute>
-      <xsl:attribute name="y">
-        <xsl:value-of select="$y"/>
-      </xsl:attribute>
-      <xsl:call-template name="getSvgAttributesFromOsmTags"/>
-      <xsl:value-of select="tag[@k=$instruction/@k]/@v"/>
-    </text>
+			<xsl:call-template name="renderText">
+				<xsl:with-param name="instruction" select="$instruction"/>
+				<xsl:with-param name="lon" select="substring-before($center, ',')"/>
+				<xsl:with-param name="lat" select="substring-after($center, ',')"/>
+				<xsl:with-param name="text" select="$text"/>
+			</xsl:call-template>
+		</xsl:otherwise>
+
+	</xsl:choose>
+
+
+
+
   </xsl:template>
 
   <!-- Process an <areaSymbol> instruction -->
-  <xsl:template match="areaSymbol">
+  <xsl:template match="areaSymbol" mode="render">
     <xsl:param name="elements"/>
 
     <!-- This is the instruction that is currently being processed -->
@@ -1188,33 +1519,113 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   <xsl:template name="renderAreaSymbol">
     <xsl:param name="instruction"/>
 
-    <xsl:variable name='center'>
-      <xsl:call-template name="areaCenter">
-	<xsl:with-param name="element" select="." />
-      </xsl:call-template>
+    <xsl:variable name="element" select="."/>
+
+    <xsl:variable name="areaLabels" select="exslt:node-set($labels)/labels:area[@id = $element/@id]"/>
+	
+	<xsl:choose>
+		<xsl:when test="$areaLabels">
+			<xsl:for-each select="$areaLabels/labels:label">
+				<xsl:variable name="label" select="."/>
+				<xsl:for-each select="$data">
+					<xsl:call-template name="renderSymbol">
+						<xsl:with-param name="instruction" select="$instruction"/>
+						<xsl:with-param name="lon" select="key('nodeById', $label/@ref)/@lon"/>
+						<xsl:with-param name="lat" select="key('nodeById', $label/@ref)/@lat"/>
+					</xsl:call-template>
+				</xsl:for-each>
+			</xsl:for-each>
+		</xsl:when>
+		
+		<xsl:otherwise>
+			<xsl:variable name='center'>
+				<xsl:call-template name="areaCenterWrapper">
+					<xsl:with-param name="element" select="$element" />
+				</xsl:call-template>
+			</xsl:variable>
+			
+			<xsl:message>
+				areaCenter: <xsl:value-of select="$center" />
+			</xsl:message>
+			
+			<xsl:call-template name="renderSymbol">
+				<xsl:with-param name="instruction" select="$instruction"/>
+				<xsl:with-param name="lon" select="substring-before($center, ',')"/>
+				<xsl:with-param name="lat" select="substring-after($center, ',')"/>
+			</xsl:call-template>
+		</xsl:otherwise>				
+	</xsl:choose>
+	
+  </xsl:template>
+
+  <!--
+      areaCenterWrapper: Call either areaCenter or areaBBOXCenter depending on how many nodes the polygon has.
+      areaCenter performance is something like O(n^2) and running it on a 2GHz Intel Core Duo it took approx
+      half a minute for a hundred-node polygon while a 200-node polygon took almost 5 minutes.
+  -->
+  <xsl:template name="areaCenterWrapper">
+    <xsl:param name="element" />
+
+    <xsl:choose>
+      <xsl:when test="$element/tag[@k='osmarender:areaCenterLat']">
+        <xsl:message>
+          <xsl:value-of select="$element/tag[@k='osmarender:areaCenterLat']"/>
+        </xsl:message>
+        <xsl:value-of select="concat($element/tag[@k='osmarender:areaCenterLon']/@v,',',$element/tag[@k='osmarender:areaCenterLat']/@v)"/>
+      </xsl:when>
+      <xsl:when test="count($element/nd) &gt; 2 and count($element/nd) &lt; 150">
+        <xsl:call-template name="areaCenter">
+          <xsl:with-param name="element" select="$element" />
+        </xsl:call-template>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:call-template name="areaBBOXCenter">
+          <xsl:with-param name="element" select="$element" />
+        </xsl:call-template>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <!--
+      areaBBOXCenter: Simple and computationally cheap way to get a center point of a polygon
+  -->
+  <xsl:template name="areaBBOXCenter">
+    <xsl:param name="element" />
+
+    <xsl:variable name="maxLat">
+      <xsl:for-each select="$data/osm/node[@id=$element/nd/@ref]/@lat">
+        <xsl:sort data-type="number" order="descending"/>
+        <xsl:if test="position()=1">
+          <xsl:value-of select="."/>
+        </xsl:if>
+      </xsl:for-each>
+    </xsl:variable>
+    <xsl:variable name="minLat">
+      <xsl:for-each select="$data/osm/node[@id=$element/nd/@ref]/@lat">
+        <xsl:sort data-type="number" order="ascending"/>
+        <xsl:if test="position()=1">
+          <xsl:value-of select="."/>
+        </xsl:if>
+      </xsl:for-each>
+    </xsl:variable>
+    <xsl:variable name="maxLon">
+      <xsl:for-each select="$data/osm/node[@id=$element/nd/@ref]/@lon">
+        <xsl:sort data-type="number" order="descending"/>
+        <xsl:if test="position()=1">
+          <xsl:value-of select="."/>
+        </xsl:if>
+      </xsl:for-each>
+    </xsl:variable>
+    <xsl:variable name="minLon">
+      <xsl:for-each select="$data/osm/node[@id=$element/nd/@ref]/@lon">
+        <xsl:sort data-type="number" order="ascending"/>
+        <xsl:if test="position()=1">
+          <xsl:value-of select="."/>
+        </xsl:if>
+      </xsl:for-each>
     </xsl:variable>
 
-    <xsl:message>
-      areaCenter: <xsl:value-of select="$center" />
-    </xsl:message>
-
-    <xsl:variable name="centerLon" select="substring-before($center, ',')" />
-    <xsl:variable name="centerLat" select="substring-after($center, ',')" />
-
-    <xsl:variable name="x" select="($width)-((($topRightLongitude)-($centerLon))*10000*$scale)"/>
-    <xsl:variable name="y" select="($height)+((($bottomLeftLatitude)-($centerLat))*10000*$scale*$projection)"/>
-
-    <g transform="translate({$x},{$y}) scale({$symbolScale})">
-      <use>
-        <xsl:if test="$instruction/@ref">
-          <xsl:attribute name="xlink:href">
-            <xsl:value-of select="concat('#symbol-', $instruction/@ref)"/>
-          </xsl:attribute>
-        </xsl:if>
-        <xsl:apply-templates select="$instruction/@*" mode="copyAttributes"/>
-        <!-- Copy all the attributes from the <symbol> instruction -->
-      </use>
-    </g>
+    <xsl:value-of select="$minLon + (($maxLon - $minLon) div 2)" />,<xsl:value-of select="$minLat + (($maxLat - $minLat) div 2)" />
   </xsl:template>
 
   <!--
@@ -1225,60 +1636,60 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:param name="element" />
 
     <!-- Get multipolygon relation for areas with holes -->
-    <xsl:variable name='holerelation' select="key('relationByWay',$element/@id)[tag[@k='type' and @v='multipolygon']]"/>
+    <xsl:variable name='holeRelation' select="key('relationByWay',$element/@id)[tag[@k='type' and @v='multipolygon']]"/>
 
     <!-- A semicolon-separated list of x,y coordinate pairs of points lying halfway into the polygon at angles to the vertex -->
     <xsl:variable name="points">
       <xsl:call-template name="areacenterPointsInside">
-	<xsl:with-param name="element" select="$element" />
-	<xsl:with-param name="holerelation" select="$holerelation" />
+        <xsl:with-param name="element" select="$element" />
+        <xsl:with-param name="holeRelation" select="$holeRelation" />
       </xsl:call-template>
     </xsl:variable>
-
+    
     <!-- x,y calculated by a simple average over all x/y's in points -->
     <xsl:variable name="mediumpoint">
       <xsl:call-template name="areacenterMediumOfPoints">
-	<xsl:with-param name="points" select="$points" />
+        <xsl:with-param name="points" select="$points" />
       </xsl:call-template>
     </xsl:variable>
     <xsl:variable name="mediumpoint_x" select="substring-before($mediumpoint, ',')" />
     <xsl:variable name="mediumpoint_y" select="substring-before(substring-after($mediumpoint, ','), ',')" />
     <xsl:variable name="medium_dist" select="substring-after(substring-after($mediumpoint, ','), ',')" />
-
+    
     <!-- Find out if mediumpoint is inside or outside the polygon -->
     <xsl:variable name="intersection">
       <xsl:call-template name="areacenterNearestIntersectionInside">
-	<xsl:with-param name="x" select="$mediumpoint_x" />
-	<xsl:with-param name="y" select="$mediumpoint_y" />
-	<xsl:with-param name="edgestart" select="$element/nd[1]" />
-	<xsl:with-param name="linepoint_x" select="$mediumpoint_x" />
-	<xsl:with-param name="linepoint_y" select="$mediumpoint_y + 1" />
-	<xsl:with-param name="holerelation" select="$holerelation" />
+        <xsl:with-param name="x" select="$mediumpoint_x" />
+        <xsl:with-param name="y" select="$mediumpoint_y" />
+        <xsl:with-param name="edgestart" select="$element/nd[1]" />
+        <xsl:with-param name="linepoint_x" select="$mediumpoint_x" />
+        <xsl:with-param name="linepoint_y" select="$mediumpoint_y + 1" />
+        <xsl:with-param name="holeRelation" select="$holeRelation" />
       </xsl:call-template>
     </xsl:variable>
     <xsl:variable name="intersection_count" select="substring-before($intersection, ';')" />
-
+    
     <xsl:variable name="nearestEdge">
       <xsl:call-template name="areacenterNearestEdge">
-	<xsl:with-param name="x" select="$mediumpoint_x" />
-	<xsl:with-param name="y" select="$mediumpoint_y" />
-	<xsl:with-param name="edgestart" select="$element/nd[1]" />
-	<xsl:with-param name="holerelation" select="$holerelation" />
+        <xsl:with-param name="x" select="$mediumpoint_x" />
+        <xsl:with-param name="y" select="$mediumpoint_y" />
+        <xsl:with-param name="edgestart" select="$element/nd[1]" />
+        <xsl:with-param name="holeRelation" select="$holeRelation" />
       </xsl:call-template>
     </xsl:variable>
-
+    
     <xsl:choose>
       <xsl:when test="$intersection_count mod 2 = 0 or $nearestEdge div 2 * 1.20 &gt; $medium_dist">
-	<!-- Find the best point in $points to use -->
-	<xsl:call-template name="areacenterBestPoint">
-	  <xsl:with-param name="points" select="$points" />
-	  <xsl:with-param name="x" select="$mediumpoint_x" />
-	  <xsl:with-param name="y" select="$mediumpoint_y" />
-	  <xsl:with-param name="medium_dist" select="$medium_dist" />
-	</xsl:call-template>
+        <!-- Find the best point in $points to use -->
+        <xsl:call-template name="areacenterBestPoint">
+          <xsl:with-param name="points" select="$points" />
+          <xsl:with-param name="x" select="$mediumpoint_x" />
+          <xsl:with-param name="y" select="$mediumpoint_y" />
+          <xsl:with-param name="medium_dist" select="$medium_dist" />
+        </xsl:call-template>
       </xsl:when>
       <xsl:otherwise>
-	<xsl:value-of select="$mediumpoint_x"/>,<xsl:value-of select="$mediumpoint_y"/>
+        <xsl:value-of select="$mediumpoint_x"/>,<xsl:value-of select="$mediumpoint_y"/>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
@@ -1286,7 +1697,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   <!-- Returns a semicolon-separated list of x,y pairs -->
   <xsl:template name="areacenterPointsInside">
     <xsl:param name="element" />
-    <xsl:param name="holerelation" />
+    <xsl:param name="holeRelation" />
 
     <!-- iterate over every vertex except the first one, which is also the last -->
     <xsl:for-each select="$element/nd[position() &gt; 1]">
@@ -1307,16 +1718,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
       <!-- Angle at between $prev and $next in $vertex -->
       <xsl:variable name="angle">
 	<xsl:call-template name="angleThroughPoints">
-	  <xsl:with-param name="from" select="key('nodeById', $prev/@ref)" />
-	  <xsl:with-param name="through" select="key('nodeById', $vertex/@ref)" />
-	  <xsl:with-param name="to" select="key('nodeById', $next/@ref)" />
+	  <xsl:with-param name="from" select="$data/osm/node[@id=$prev/@ref]" />
+	  <xsl:with-param name="through" select="$data/osm/node[@id=$vertex/@ref]" />
+	  <xsl:with-param name="to" select="$data/osm/node[@id=$next/@ref]" />
 	</xsl:call-template>
       </xsl:variable>
 
       <!-- Calculate a point on the line going through $vertex at $angle -->
       <xsl:variable name="linepoint">
 	<xsl:call-template name="areacenterLinepoint">
-	  <xsl:with-param name="point" select="key('nodeById', $vertex/@ref)" />
+	  <xsl:with-param name="point" select="$data/osm/node[@id=$vertex/@ref]" />
 	  <xsl:with-param name="angle" select="$angle" />
 	</xsl:call-template>
       </xsl:variable>
@@ -1326,12 +1737,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
       <!-- Find the nearest intersection between the line vertex-linepoint and the nearest edge inwards into the polygon -->
       <xsl:variable name="intersection">
 	<xsl:call-template name="areacenterNearestIntersectionInside">
-	  <xsl:with-param name="x" select="key('nodeById', $vertex/@ref)/@lon" />
-	  <xsl:with-param name="y" select="key('nodeById', $vertex/@ref)/@lat" />
+	  <xsl:with-param name="x" select="$data/osm/node[@id=$vertex/@ref]/@lon" />
+	  <xsl:with-param name="y" select="$data/osm/node[@id=$vertex/@ref]/@lat" />
 	  <xsl:with-param name="edgestart" select="../nd[1]" />
 	  <xsl:with-param name="linepoint_x" select="$linepoint_x" />
 	  <xsl:with-param name="linepoint_y" select="$linepoint_y" />
-	  <xsl:with-param name="holerelation" select="$holerelation" />
+	  <xsl:with-param name="holeRelation" select="$holeRelation" />
 	</xsl:call-template>
       </xsl:variable>
       <xsl:variable name="intersection_count" select="substring-before($intersection, ';')" />
@@ -1349,8 +1760,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
       <xsl:variable name="intersection_y" select="substring-before(substring-after($intersection_data, ','), ',')" />
       <xsl:variable name="intersection_dist" select="substring-before(substring-after(substring-after($intersection_data, ','), ','), ',')" />
 
-      <xsl:variable name="point_x" select="key('nodeById', $vertex/@ref)/@lon + ( $intersection_x - key('nodeById', $vertex/@ref)/@lon ) div 2" />
-      <xsl:variable name="point_y" select="key('nodeById', $vertex/@ref)/@lat + ( $intersection_y - key('nodeById', $vertex/@ref)/@lat ) div 2" />
+      <xsl:variable name="point_x" select="$data/osm/node[@id=$vertex/@ref]/@lon + ( $intersection_x - $data/osm/node[@id=$vertex/@ref]/@lon ) div 2" />
+      <xsl:variable name="point_y" select="$data/osm/node[@id=$vertex/@ref]/@lat + ( $intersection_y - $data/osm/node[@id=$vertex/@ref]/@lat ) div 2" />
       
       <xsl:if test="($point_x &lt;= 0 or $point_x &gt; 0)  and ($point_y &lt;= 0 or $point_y &gt; 0)"> <!-- Only return anything if we actually have a result -->
 	<!-- Note: this will produce trailing semicolon, which is nice as it simplifies looping over this later -->
@@ -1370,43 +1781,19 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:variable name="to_x" select="$to/@lon - $through/@lon" />
     <xsl:variable name="to_y" select="$to/@lat - $through/@lat" />
 
-    <xsl:variable name="from_angle_">
+    <xsl:variable name="from_angle">
       <xsl:call-template name="atan2">
 	<xsl:with-param name="x" select="$from_x" />
 	<xsl:with-param name="y" select="$from_y" />
       </xsl:call-template>
     </xsl:variable>
-    <xsl:variable name="from_angle" select="$from_angle_ + $pi" />
-    <xsl:variable name="to_angle_">
+    <xsl:variable name="to_angle">
       <xsl:call-template name="atan2">
 	<xsl:with-param name="x" select="$to_x" />
 	<xsl:with-param name="y" select="$to_y" />
       </xsl:call-template>
     </xsl:variable>
-    <xsl:variable name="to_angle" select="$to_angle_ + $pi" />
-
-    <xsl:variable name="min_angle">
-      <xsl:choose>
-	<xsl:when test="$from_angle &gt; $to_angle">
-	  <xsl:value-of select="$to_angle" />
-	</xsl:when>
-	<xsl:otherwise>
-	  <xsl:value-of select="$from_angle" />
-	</xsl:otherwise>
-      </xsl:choose>
-    </xsl:variable>
-    <xsl:variable name="max_angle">
-      <xsl:choose>
-	<xsl:when test="$from_angle &gt; $to_angle">
-	  <xsl:value-of select="$from_angle" />
-	</xsl:when>
-	<xsl:otherwise>
-	  <xsl:value-of select="$to_angle" />
-	</xsl:otherwise>
-      </xsl:choose>
-    </xsl:variable>
-
-    <xsl:value-of select="$min_angle + ($max_angle - $min_angle) div 2" />
+    <xsl:value-of select="($to_angle + $from_angle) div 2" />
   </xsl:template>
 
   <!-- atan2 implementation from http://lists.fourthought.com/pipermail/exslt/2007-March/001540.html -->
@@ -1595,7 +1982,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:param name="edgestart" />
     <xsl:param name="linepoint_x" />
     <xsl:param name="linepoint_y" />
-    <xsl:param name="holerelation" />
+    <xsl:param name="holeRelation" />
     <xsl:param name="intersectioncount_on" select="0" /><!-- Number of intersections. Only counts those on segment (x,y)-linepoint -->
     <xsl:param name="nearest_on_x" />
     <xsl:param name="nearest_on_y" />
@@ -1611,8 +1998,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 	<!-- Get the intersection point between the line ($x,$y)-$linepoint and $edgestart-$edgeend -->
 	<xsl:variable name="intersection">
 	  <xsl:choose>
-	    <xsl:when test="( $x = key('nodeById', $edgestart/@ref)/@lon and $y = key('nodeById', $edgestart/@ref)/@lat ) or
-			    ( $x = key('nodeById', $edgeend/@ref)/@lon and $y = key('nodeById', $edgeend/@ref)/@lat )">
+	    <xsl:when test="( $x = $data/osm/node[@id=$edgestart/@ref]/@lon and $y = $data/osm/node[@id=$edgestart/@ref]/@lat ) or
+			    ( $x = $data/osm/node[@id=$edgeend/@ref]/@lon and $y = $data/osm/node[@id=$edgeend/@ref]/@lat )">
 	      <!-- (x,y) is one of the points in edge, skip -->
 	      NoIntersection
 	    </xsl:when>
@@ -1622,10 +2009,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 		<xsl:with-param name="y1" select="$y" />
 		<xsl:with-param name="x2" select="$linepoint_x" />
 		<xsl:with-param name="y2" select="$linepoint_y" />
-		<xsl:with-param name="x3" select="key('nodeById', $edgestart/@ref)/@lon" />
-		<xsl:with-param name="y3" select="key('nodeById', $edgestart/@ref)/@lat" />
-		<xsl:with-param name="x4" select="key('nodeById', $edgeend/@ref)/@lon" />
-		<xsl:with-param name="y4" select="key('nodeById', $edgeend/@ref)/@lat" />
+		<xsl:with-param name="x3" select="$data/osm/node[@id=$edgestart/@ref]/@lon" />
+		<xsl:with-param name="y3" select="$data/osm/node[@id=$edgestart/@ref]/@lat" />
+		<xsl:with-param name="x4" select="$data/osm/node[@id=$edgeend/@ref]/@lon" />
+		<xsl:with-param name="y4" select="$data/osm/node[@id=$edgeend/@ref]/@lat" />
 	      </xsl:call-template>
 	    </xsl:otherwise>
 	  </xsl:choose>
@@ -1668,7 +2055,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 	      <xsl:with-param name="linepoint_x" select="$linepoint_x" />
 	      <xsl:with-param name="linepoint_y" select="$linepoint_y" />
 	      <xsl:with-param name="edgestart" select="$edgeend" />
-	      <xsl:with-param name="holerelation" select="$holerelation" />
+	      <xsl:with-param name="holeRelation" select="$holeRelation" />
 	      <xsl:with-param name="intersectioncount_on" select="$intersectioncount_on + number(boolean($isOnSegment = 'Yes'))" />
 	      <xsl:with-param name="nearest_on_dist"> <xsl:choose>
 		<xsl:when test="$isNewNearestOn = 'Yes'"> <xsl:value-of select="$distance" /> </xsl:when>
@@ -1704,7 +2091,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 	      <xsl:with-param name="linepoint_x" select="$linepoint_x" />
 	      <xsl:with-param name="linepoint_y" select="$linepoint_y" />
 	      <xsl:with-param name="edgestart" select="$edgeend" />
-	      <xsl:with-param name="holerelation" select="$holerelation" />
+	      <xsl:with-param name="holeRelation" select="$holeRelation" />
 	      <xsl:with-param name="intersectioncount_on" select="$intersectioncount_on" />
 	      <xsl:with-param name="nearest_on_dist" select="$nearest_on_dist" />
 	      <xsl:with-param name="nearest_on_x" select="$nearest_on_x" />
@@ -1717,16 +2104,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 	</xsl:choose>
       </xsl:when>
       <!-- Is there a hole in the polygon, and were we working on the outer one? Then we start edge detection against the hole. -->
-      <xsl:when test="$holerelation and
-		      $holerelation/member[@ref = $edgestart/../@id][@role='outer']">
-	<xsl:variable name="nextnode" select="key('wayById', $holerelation/member[@type='way'][@role='inner'][1]/@ref)/nd[1]"/>
+      <xsl:when test="$holeRelation and
+		      $holeRelation/member[@ref = $edgestart/../@id][@role='outer']">
+	<xsl:variable name="nextnode" select="$data/osm/way[@id=$holeRelation/member[@type='way'][@role='inner'][1]/@ref]/nd[1]"/>
 	<xsl:call-template name="areacenterNearestIntersectionInside">
 	  <xsl:with-param name="x" select="$x" />
 	  <xsl:with-param name="y" select="$y" />
 	  <xsl:with-param name="linepoint_x" select="$linepoint_x" />
 	  <xsl:with-param name="linepoint_y" select="$linepoint_y" />
 	  <xsl:with-param name="edgestart" select="$nextnode" />
-	  <xsl:with-param name="holerelation" select="$holerelation" />
+	  <xsl:with-param name="holeRelation" select="$holeRelation" />
 	  <xsl:with-param name="intersectioncount_on" select="$intersectioncount_on" />
 	  <xsl:with-param name="nearest_on_dist" select="$nearest_on_dist" />
 	  <xsl:with-param name="nearest_on_x" select="$nearest_on_x" />
@@ -1737,16 +2124,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 	</xsl:call-template>
       </xsl:when>
       <!-- Is there a hole in the polygon, and were we working working on one of the inner ones? Then go to the next hole, if there is one -->
-      <xsl:when test="$holerelation and
-		      $holerelation/member[@ref = $edgestart/../@id][@type='way'][@role='inner']/following-sibling::member[@role='inner']">
-	<xsl:variable name="nextnode" select="key('wayById', $holerelation/member[@ref = $edgestart/../@id][@type='way'][@role='inner']/following-sibling::member[@role='inner']/@ref)/nd[1]"/>
+      <xsl:when test="$holeRelation and
+		      $holeRelation/member[@ref = $edgestart/../@id][@type='way'][@role='inner']/following-sibling::member[@role='inner']">
+	<xsl:variable name="nextnode" select="$data/osm/way[@id=$holeRelation/member[@ref = $edgestart/../@id][@type='way'][@role='inner']/following-sibling::member[@role='inner']/@ref]/nd[1]"/>
 	<xsl:call-template name="areacenterNearestIntersectionInside">
 	  <xsl:with-param name="x" select="$x" />
 	  <xsl:with-param name="y" select="$y" />
 	  <xsl:with-param name="linepoint_x" select="$linepoint_x" />
 	  <xsl:with-param name="linepoint_y" select="$linepoint_y" />
 	  <xsl:with-param name="edgestart" select="$nextnode" />
-	  <xsl:with-param name="holerelation" select="$holerelation" />
+	  <xsl:with-param name="holeRelation" select="$holeRelation" />
 	  <xsl:with-param name="intersectioncount_on" select="$intersectioncount_on" />
 	  <xsl:with-param name="nearest_on_dist" select="$nearest_on_dist" />
 	  <xsl:with-param name="nearest_on_x" select="$nearest_on_x" />
@@ -1770,7 +2157,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:param name="x" />
     <xsl:param name="y" />
     <xsl:param name="edgestart" />
-    <xsl:param name="holerelation" />
+    <xsl:param name="holeRelation" />
     <xsl:param name="nearest_dist" select="'NaN'" />
 
     <xsl:choose>
@@ -1782,10 +2169,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 	  <xsl:call-template name="areacenterDistancePointSegment">
 	    <xsl:with-param name="x" select="$x" />
 	    <xsl:with-param name="y" select="$y" />
-	    <xsl:with-param name="x1" select="key('nodeById', $edgestart/@ref)/@lon" />
-	    <xsl:with-param name="y1" select="key('nodeById', $edgestart/@ref)/@lat" />
-	    <xsl:with-param name="x2" select="key('nodeById', $edgeend/@ref)/@lon" />
-	    <xsl:with-param name="y2" select="key('nodeById', $edgeend/@ref)/@lat" />
+	    <xsl:with-param name="x1" select="$data/osm/node[@id=$edgestart/@ref]/@lon" />
+	    <xsl:with-param name="y1" select="$data/osm/node[@id=$edgestart/@ref]/@lat" />
+	    <xsl:with-param name="x2" select="$data/osm/node[@id=$edgeend/@ref]/@lon" />
+	    <xsl:with-param name="y2" select="$data/osm/node[@id=$edgeend/@ref]/@lat" />
 	  </xsl:call-template>
 	</xsl:variable>
 
@@ -1797,7 +2184,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 	      <xsl:with-param name="x" select="$x" />
 	      <xsl:with-param name="y" select="$y" />
 	      <xsl:with-param name="edgestart" select="$edgeend" />
-	      <xsl:with-param name="holerelation" select="$holerelation" />
+	      <xsl:with-param name="holeRelation" select="$holeRelation" />
 	      <xsl:with-param name="nearest_dist"> <xsl:choose>
 		<xsl:when test="$nearest_dist = 'NaN' or $distance &lt; $nearest_dist"> <xsl:value-of select="$distance" /> </xsl:when>
 		<xsl:otherwise> <xsl:value-of select="$nearest_dist" /> </xsl:otherwise>
@@ -1810,33 +2197,33 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 	      <xsl:with-param name="x" select="$x" />
 	      <xsl:with-param name="y" select="$y" />
 	      <xsl:with-param name="edgestart" select="$edgeend" />
-	      <xsl:with-param name="holerelation" select="$holerelation" />
+	      <xsl:with-param name="holeRelation" select="$holeRelation" />
 	      <xsl:with-param name="nearest_dist" select="$nearest_dist" />
 	    </xsl:call-template>
 	  </xsl:otherwise>
 	</xsl:choose>
       </xsl:when>
       <!-- Is there a hole in the polygon, and were we working on the outer one? Then we start edge detection against the hole. -->
-      <xsl:when test="$holerelation and
-		      $holerelation/member[@ref = $edgestart/../@id][@role='outer']">
-	<xsl:variable name="nextnode" select="key('wayById', $holerelation/member[@type='way'][@role='inner'][1]/@ref)/nd[1]"/>
+      <xsl:when test="$holeRelation and
+		      $holeRelation/member[@ref = $edgestart/../@id][@role='outer']">
+	<xsl:variable name="nextnode" select="$data/osm/way[@id=$holeRelation/member[@type='way'][@role='inner'][1]/@ref]/nd[1]"/>
 	<xsl:call-template name="areacenterNearestEdge">
 	  <xsl:with-param name="x" select="$x" />
 	  <xsl:with-param name="y" select="$y" />
 	  <xsl:with-param name="edgestart" select="$nextnode" />
-	  <xsl:with-param name="holerelation" select="$holerelation" />
+	  <xsl:with-param name="holeRelation" select="$holeRelation" />
 	  <xsl:with-param name="nearest_dist" select="$nearest_dist" />
 	</xsl:call-template>
       </xsl:when>
       <!-- Is there a hole in the polygon, and were we working working on one of the inner ones? Then go to the next hole, if there is one -->
-      <xsl:when test="$holerelation and
-		      $holerelation/member[@ref = $edgestart/../@id][@type='way'][@role='inner']/following-sibling::member[@role='inner']">
-	<xsl:variable name="nextnode" select="key('wayById', $holerelation/member[@ref = $edgestart/../@id][@type='way'][@role='inner']/following-sibling::member[@role='inner']/@ref)/nd[1]"/>
+      <xsl:when test="$holeRelation and
+		      $holeRelation/member[@ref = $edgestart/../@id][@type='way'][@role='inner']/following-sibling::member[@role='inner']">
+	<xsl:variable name="nextnode" select="$data/osm/way[@id=$holeRelation/member[@ref = $edgestart/../@id][@type='way'][@role='inner']/following-sibling::member[@role='inner']/@ref]/nd[1]"/>
 	<xsl:call-template name="areacenterNearestEdge">
 	  <xsl:with-param name="x" select="$x" />
 	  <xsl:with-param name="y" select="$y" />
 	  <xsl:with-param name="edgestart" select="$nextnode" />
-	  <xsl:with-param name="holerelation" select="$holerelation" />
+	  <xsl:with-param name="holeRelation" select="$holeRelation" />
 	  <xsl:with-param name="nearest_dist" select="$nearest_dist" />
 	</xsl:call-template>
       </xsl:when>
@@ -2077,8 +2464,8 @@ against infinite loops -->
     </xsl:choose>
   </xsl:template>
 
-  <!-- Process a <text> instruction -->
-  <xsl:template match="text">
+  <!-- Process a <pathText> instruction -->
+  <xsl:template match="text|pathText" mode="render">
     <xsl:param name="elements"/>
 
     <!-- This is the instruction that is currently being processed -->
@@ -2086,9 +2473,12 @@ against infinite loops -->
 
     <!-- Select all <node> elements that have a key that matches the k attribute of the text instruction -->
     <xsl:for-each select="$elements[name()='node'][tag[@k=$instruction/@k]]">
-      <xsl:call-template name="renderText">
-        <xsl:with-param name="instruction" select="$instruction"/>
-      </xsl:call-template>
+		<xsl:call-template name="renderText">
+			<xsl:with-param name="instruction" select="$instruction"/>
+			<xsl:with-param name="lon" select="@lon"/>
+			<xsl:with-param name="lat" select="@lat"/>
+			<xsl:with-param name="text" select="tag[@k=$instruction/@k]/@v"/>
+		</xsl:call-template>				
     </xsl:for-each>
 
     <!-- Select all <way> elements -->
@@ -2108,62 +2498,62 @@ against infinite loops -->
 
     <!-- The current <way> element -->
     <xsl:variable name="way" select="."/>
-
-    <!-- DODI: !!!WORKAROUND!!! no text for one node ways-->
-    <xsl:if test="count($way/nd) &gt; 1">
-      <xsl:variable name='text'>
-        <xsl:choose>
-          <xsl:when test='$instruction/@k'>
-            <xsl:value-of select='tag[@k=$instruction/@k]/@v'/>
-          </xsl:when>
-          <xsl:otherwise>
-            <xsl:apply-templates select='$instruction' mode='textFormat'>
-              <xsl:with-param name='way' select='$way'/>
-            </xsl:apply-templates>
-          </xsl:otherwise>
-        </xsl:choose>
-      </xsl:variable>
-
-      <xsl:if test='string($text)'>
-
-        <xsl:variable name="pathDirection">
-          <xsl:choose>
-            <!-- Manual override, reverse direction -->
-            <xsl:when test="tag[@k='name_direction']/@v='-1' or tag[@k='osmarender:nameDirection']/@v='-1'">reverse</xsl:when>
-            <!-- Manual override, normal direction -->
-            <xsl:when test="tag[@k='name_direction']/@v='1' or tag[@k='osmarender:nameDirection']/@v='1'">normal</xsl:when>
-            <!-- Automatic, reverse direction -->
-            <xsl:when test="(key('nodeById',$way/nd[1]/@ref)/@lon &gt; key('nodeById',$way/nd[last()]/@ref)/@lon)">reverse</xsl:when>
-            <!-- Automatic, normal direction -->
-            <xsl:otherwise>normal</xsl:otherwise>
-          </xsl:choose>
-        </xsl:variable>
-
-        <xsl:variable name="wayPath">
-          <xsl:choose>
-            <!-- Normal -->
-            <xsl:when test='$pathDirection="normal"'>
-              <xsl:value-of select="concat('way_normal_',@id)"/>
-            </xsl:when>
-            <!-- Reverse -->
-            <xsl:otherwise>
-              <xsl:value-of select="concat('way_reverse_',@id)"/>
-            </xsl:otherwise>
-          </xsl:choose>
-        </xsl:variable>
-
-        <xsl:call-template name="renderTextPath">
-          <xsl:with-param name="instruction" select="$instruction"/>
-          <xsl:with-param name="pathId" select="$wayPath"/>
-          <xsl:with-param name="pathDirection" select="$pathDirection"/>
-          <xsl:with-param name="text" select="$text"/>
-        </xsl:call-template>
-      </xsl:if>
-    </xsl:if>
+	
+	<!-- dodi: !!!workaround!!! no text for one node ways-->
+	<xsl:if test="count($way/nd) &gt; 1">
+		<xsl:variable name='text'>
+			<xsl:choose>
+				<xsl:when test='$instruction/@k'>
+					<xsl:value-of select='tag[@k=$instruction/@k]/@v'/>
+				</xsl:when>
+				<xsl:otherwise>
+					<xsl:apply-templates select='$instruction' mode='textformat'>
+						<xsl:with-param name='way' select='$way'/>
+					</xsl:apply-templates>
+				</xsl:otherwise>
+			</xsl:choose>
+		</xsl:variable>
+		
+		<xsl:if test='string($text)'>
+			
+			<xsl:variable name="pathdirection">
+				<xsl:choose>
+					<!-- manual override, reverse direction -->
+					<xsl:when test="tag[@k='name_direction']/@v='-1' or tag[@k='osmarender:namedirection']/@v='-1'">reverse</xsl:when>
+					<!-- manual override, normal direction -->
+					<xsl:when test="tag[@k='name_direction']/@v='1' or tag[@k='osmarender:namedirection']/@v='1'">normal</xsl:when>
+					<!-- automatic, reverse direction -->
+					<xsl:when test="(key('nodeById',$way/nd[1]/@ref)/@lon &gt; key('nodeById',$way/nd[last()]/@ref)/@lon)">reverse</xsl:when>
+					<!-- automatic, normal direction -->
+					<xsl:otherwise>normal</xsl:otherwise>
+				</xsl:choose>
+			</xsl:variable>
+			
+			<xsl:variable name="waypath">
+				<xsl:choose>
+					<!-- normal -->
+					<xsl:when test='$pathdirection="normal"'>
+						<xsl:value-of select="concat('way_normal_',@id)"/>
+					</xsl:when>
+					<!-- reverse -->
+					<xsl:otherwise>
+						<xsl:value-of select="concat('way_reverse_',@id)"/>
+					</xsl:otherwise>
+				</xsl:choose>
+			</xsl:variable>
+			
+			<xsl:call-template name="renderTextPath">
+				<xsl:with-param name="instruction" select="$instruction"/>
+				<xsl:with-param name="pathId" select="$waypath"/>
+				<xsl:with-param name="pathDirection" select="$pathdirection"/>
+				<xsl:with-param name="text" select="$text"/>
+			</xsl:call-template>
+		</xsl:if>
+	</xsl:if>
   </xsl:template>
 
   <!-- Process extended form of text instruction -->
-  <xsl:template match='text' mode='textFormat'>
+  <xsl:template match='text|pathText' mode='textFormat'>
     <xsl:param name='way'/>
 
     <xsl:apply-templates mode='textFormat'>
@@ -2173,7 +2563,7 @@ against infinite loops -->
 
 
   <!-- Substitute a tag in a text instruction -->
-  <xsl:template match='text/tag' mode='textFormat'>
+  <xsl:template match='text/tag|pathText/tag' mode='textFormat'>
     <xsl:param name='way'/>
 
     <xsl:variable name='key' select='@k'/>
@@ -2360,27 +2750,22 @@ against infinite loops -->
 	<!-- Handle multipolygons.
 	     Draw area only once, draw the outer one first if we know which is it, else just draw the first one -->
 	<xsl:variable name='outerway' select="$relation/member[@type='way'][@role='outer']/@ref"/>
-	<xsl:variable name='firsrelationmember' select="$relation/member[@type='way'][key('wayById', @ref)][1]/@ref"/> 
-        <xsl:if test='( $outerway and $outerway=@id ) or ( not($outerway) and $firsrelationmember=@id )'>
+        <xsl:if test='( $outerway and $outerway=@id)'>
           <xsl:message>
             <xsl:value-of select='$relation/@id'/>
           </xsl:message>
           <xsl:for-each select="$relation/member[@type='way'][key('wayById', @ref)]">
             <xsl:call-template name='generateAreaSubPath'>
               <xsl:with-param name='way' select="key('wayById',@ref)"/>
-              <xsl:with-param name='position' select="position()"/>
             </xsl:call-template>
           </xsl:for-each>
-          <xsl:text>Z</xsl:text>
         </xsl:if>
 
       </xsl:when>
       <xsl:otherwise>
         <xsl:call-template name='generateAreaSubPath'>
           <xsl:with-param name='way' select='.'/>
-          <xsl:with-param name='position' select="'1'"/>
         </xsl:call-template>
-        <xsl:text>Z</xsl:text>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
@@ -2388,7 +2773,6 @@ against infinite loops -->
 
   <xsl:template name='generateAreaSubPath'>
     <xsl:param name='way'/>
-    <xsl:param name='position'/>
 
     <xsl:variable name='loop' select='$way/nd[1]/@ref=$way/nd[last()]/@ref'/>
     <xsl:message>
@@ -2396,18 +2780,13 @@ against infinite loops -->
       Loop: <xsl:value-of select='$loop'/>
       Loop: <xsl:value-of select='$way/nd[1]/@ref'/>
       Loop: <xsl:value-of select='$way/nd[last()]/@ref'/>
-    </xsl:message>
+    </xsl:message>	
+
+	<xsl:for-each select="$data">		
+
     <xsl:for-each select="$way/nd[key('nodeById',@ref)]">
       <xsl:choose>
-        <xsl:when test="position()=1 and $loop">
-          <xsl:if test='not($position=1)'>
-            <xsl:text>Z</xsl:text>
-          </xsl:if>
-          <xsl:call-template name="moveToNode">
-            <xsl:with-param name="node" select="key('nodeById',@ref)"/>
-          </xsl:call-template>
-        </xsl:when>
-        <xsl:when test="$position=1 and position()=1 and not($loop=1)">
+        <xsl:when test="position()=1">
           <xsl:call-template name="moveToNode">
             <xsl:with-param name="node" select="key('nodeById',@ref)"/>
           </xsl:call-template>
@@ -2420,6 +2799,9 @@ against infinite loops -->
       </xsl:choose>
     </xsl:for-each>
 
+	</xsl:for-each>
+		
+	<xsl:text>Z</xsl:text>
 
   </xsl:template>
 
@@ -2494,7 +2876,7 @@ against infinite loops -->
   </xsl:template>
 
   <!-- Some attribute shouldn't be copied -->
-  <xsl:template match="@type|@ref|@scale|@smart-linecap" mode="copyAttributes" />
+  <xsl:template match="@type|@ref|@scale|@smart-linecap|@honor-width|@position|@labels" mode="copyAttributes" />
 
   <!-- Copy all other attributes  -->
   <xsl:template match="@*" mode="copyAttributes">
@@ -2513,118 +2895,157 @@ against infinite loops -->
 		to be 'yes', which is the default.
 
 	-->
-  <xsl:template name="processRules">
+<xsl:template name="processRules">
 
     <!-- First select all elements - exclude those marked as deleted by JOSM -->
-    <xsl:variable name='elements' select="$data/osm/*[not(@action) or not(@action='delete')]" />
+	<xsl:variable name='elements' select="$data/osm/*[not(@action) or not(@action='delete')]" />
 
-    <xsl:choose>
+	<xsl:variable name="originalCommands">
+		<xsl:apply-templates select="/rules/rule">
+			<xsl:with-param name="elements" select="$elements"/>
+		</xsl:apply-templates>
+	</xsl:variable>
 
-      <!-- Process all the rules, one layer at a time -->
-      <xsl:when test="$withOSMLayers='yes'">
-        <xsl:call-template name="processLayer">
-          <xsl:with-param name="layer" select="'-5'"/>
-          <xsl:with-param name="elements" select="$elements"/>
-        </xsl:call-template>
-        <xsl:call-template name="processLayer">
-          <xsl:with-param name="layer" select="'-4'"/>
-          <xsl:with-param name="elements" select="$elements"/>
-        </xsl:call-template>
-        <xsl:call-template name="processLayer">
-          <xsl:with-param name="layer" select="'-3'"/>
-          <xsl:with-param name="elements" select="$elements"/>
-        </xsl:call-template>
-        <xsl:call-template name="processLayer">
-          <xsl:with-param name="layer" select="'-2'"/>
-          <xsl:with-param name="elements" select="$elements"/>
-        </xsl:call-template>
-        <xsl:call-template name="processLayer">
-          <xsl:with-param name="layer" select="'-1'"/>
-          <xsl:with-param name="elements" select="$elements"/>
-        </xsl:call-template>
-        <xsl:call-template name="processLayer">
-          <xsl:with-param name="layer" select="'0'"/>
-          <xsl:with-param name="elements" select="$elements"/>
-        </xsl:call-template>
-        <xsl:call-template name="processLayer">
-          <xsl:with-param name="layer" select="'1'"/>
-          <xsl:with-param name="elements" select="$elements"/>
-        </xsl:call-template>
-        <xsl:call-template name="processLayer">
-          <xsl:with-param name="layer" select="'2'"/>
-          <xsl:with-param name="elements" select="$elements"/>
-        </xsl:call-template>
-        <xsl:call-template name="processLayer">
-          <xsl:with-param name="layer" select="'3'"/>
-          <xsl:with-param name="elements" select="$elements"/>
-        </xsl:call-template>
-        <xsl:call-template name="processLayer">
-          <xsl:with-param name="layer" select="'4'"/>
-          <xsl:with-param name="elements" select="$elements"/>
-        </xsl:call-template>
-        <xsl:call-template name="processLayer">
-          <xsl:with-param name="layer" select="'5'"/>
-          <xsl:with-param name="elements" select="$elements"/>
-        </xsl:call-template>
-      </xsl:when>
+	<xsl:variable name="originalCommands2">
+		<xsl:call-template name="applySetAttributeActions">
+			<xsl:with-param name="commands" select="exslt:node-set($originalCommands)/z:command"/>
+			<xsl:with-param name="setAttributeActions" select="exslt:node-set($originalCommands)/z:set-attribute"/>
+		</xsl:call-template>
+	</xsl:variable>
 
-      <!-- Process all the rules, without looking at the layers -->
-      <xsl:otherwise>
-        <xsl:apply-templates select="/rules/rule">
-          <xsl:with-param name="elements" select="$elements"/>
-          <xsl:with-param name="layer" select="'0'"/>
-        </xsl:apply-templates>
-      </xsl:otherwise>
+	<xsl:variable name="commands">
+		<xsl:call-template name="applyDeleteActions">
+			<xsl:with-param name="commands" select="exslt:node-set($originalCommands2)/z:command"/>
+			<xsl:with-param name="deleteActions" select="exslt:node-set($originalCommands)/z:delete"/>
+		</xsl:call-template>
+	</xsl:variable>
+	
+	<xsl:for-each select="exslt:node-set($commands)/z:command[z:instruction/*/@z-mode='bottom']">
+		<xsl:sort select="@z-index" data-type="number"/>
+		<xsl:call-template name="renderCommand">
+			<xsl:with-param name="command" select="."/>
+		</xsl:call-template>
+	</xsl:for-each>
 
-    </xsl:choose>
-  </xsl:template>
+	<xsl:for-each select="exslt:node-set($commands)/z:command[z:instruction/*/@z-mode='normal' or not(z:instruction/*/@z-mode)]">
+		<xsl:sort select="@layer" data-type="number"/>
+		<xsl:sort select="@z-index" data-type="number"/>
+		<xsl:call-template name="renderCommand">
+			<xsl:with-param name="command" select="."/>
+		</xsl:call-template>
+	</xsl:for-each>
+	
+	<xsl:for-each select="exslt:node-set($commands)/z:command[z:instruction/*/@z-mode='top']">
+		<xsl:sort select="@z-index" data-type="number"/>
+		<xsl:call-template name="renderCommand">
+			<xsl:with-param name="command" select="."/>
+		</xsl:call-template>
+	</xsl:for-each>
 
+</xsl:template>
+  
+	<xsl:template name="renderCommand">
+		<xsl:param name="command"/>
+		
+		<xsl:for-each select="$data">
+			<xsl:variable name="element" select="key('nodeById', $command/z:element/@id) | key('wayById', $command/z:element/@id) | key('relationById', $command/z:element/@id)"/>
+			
+			<xsl:apply-templates select="$command/z:instruction/*" mode="render">
+				<xsl:with-param name="elements" select="$element"/>
+			</xsl:apply-templates>
+		</xsl:for-each>
+	</xsl:template>
 
-  <xsl:template name="processLayer">
-    <xsl:param name="layer"/>
-    <xsl:param name="elements"/>
+	<xsl:template name="applySetAttributeActions">
+		<xsl:param name="commands"/>
+		<xsl:param name="setAttributeActions"/>
 
-    <g inkscape:groupmode="layer" id="layer{$layer}" inkscape:label="Layer {$layer}">
-      <xsl:apply-templates select="/rules/rule">
-        <xsl:with-param name="elements" select="$elements"/>
-        <xsl:with-param name="layer" select="$layer"/>
-      </xsl:apply-templates>
-    </g>
-  </xsl:template>
+		<xsl:choose>
+			<xsl:when test="$setAttributeActions">
+				
+				<xsl:variable name="processedCommands">
+					<xsl:call-template name="applySetAttributeActions">
+						<xsl:with-param name="commands" select="$commands"/>
+						<xsl:with-param name="setAttributesActions" select="$setAttributeActions[position() > 1]"/>
+					</xsl:call-template>
+				</xsl:variable>
 
+				<xsl:variable name="attr" select="$setAttributeActions[1]"/>
+
+				<xsl:for-each select="$commands">
+					<xsl:variable name="command" select="."/>
+					<xsl:choose>
+						<xsl:when test="($attr/z:element[@id = $command/z:element/@id]) and contains($command/@labels, $attr/@for-label)">
+							<z:command layer="{$command/@layer}">
+								<z:instruction>
+									<xsl:element name="{local-name($command/z:instruction/*)}" xmlns="">
+										<xsl:copy-of select="$command/z:instruction/*/@*"/>
+										<xsl:attribute name="{$attr/@name}">
+											<xsl:value-of select="$attr/@value"/>
+										</xsl:attribute>
+									</xsl:element>
+								</z:instruction>
+								<z:element>
+									<xsl:copy-of select="$command/z:element/@*"/>
+								</z:element>
+							</z:command>
+						</xsl:when>
+						<xsl:otherwise>
+							<xsl:copy-of select="$command"/>
+						</xsl:otherwise>
+					</xsl:choose>
+				</xsl:for-each>
+
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:copy-of select="$commands"/>
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:template>
+
+	<xsl:template name="applyDeleteActions">
+		<xsl:param name="commands"/>
+		<xsl:param name="deleteActions"/>
+
+		<xsl:choose>
+			<xsl:when test="$deleteActions">
+				
+				<xsl:variable name="processedCommands">
+					<xsl:call-template name="applyDeleteActions">
+						<xsl:with-param name="commands" select="$commands"/>
+						<xsl:with-param name="deleteActions" select="$deleteActions[position() > 1]"/>
+					</xsl:call-template>
+				</xsl:variable>
+
+				<xsl:variable name="attr" select="$deleteActions[1]"/>
+
+				<xsl:for-each select="$commands">
+					<xsl:variable name="command" select="."/>
+					<xsl:if test="not(($attr/z:element[@id = $command/z:element/@id]) and contains($command/@labels, $attr/@for-label))">
+						<xsl:copy-of select="$command"/>
+					</xsl:if>
+				</xsl:for-each>
+
+			</xsl:when>
+			<xsl:otherwise>
+				<xsl:copy-of select="$commands"/>
+			</xsl:otherwise>
+		</xsl:choose>
+	</xsl:template>
 
   <!-- Process a rule at a specific level -->
   <xsl:template match='rule'>
     <xsl:param name="elements"/>
-    <xsl:param name="layer"/>
-
-    <!-- If the rule is for a specific layer and we are processing that layer then pass *all* elements 
-		     to the rule, otherwise just select the matching elements for this layer. -->
-    <xsl:choose>
-      <xsl:when test='$layer=@layer'>
-        <xsl:call-template name="rule">
-          <xsl:with-param name="elements" select="$elements"/>
-          <xsl:with-param name="layer" select="$layer"/>
-        </xsl:call-template>
-      </xsl:when>
-      <xsl:otherwise>
-        <xsl:if test='not(@layer)'>
-          <xsl:call-template name="rule">
-            <xsl:with-param name="elements" select="$elements[
-							tag[@k='layer' and @v=$layer]
-							or ($layer='0' and count(tag[@k='layer'])=0)
-						]"/>
-            <xsl:with-param name="layer" select="$layer"/>
-          </xsl:call-template>
-        </xsl:if>
-      </xsl:otherwise>
-    </xsl:choose>
+	
+	<xsl:call-template name="rule">
+		<xsl:with-param name="elements" select="$elements"/>
+	</xsl:call-template>
+	
   </xsl:template>
 
 
   <xsl:template name='rule'>
     <xsl:param name="elements"/>
-    <xsl:param name="layer"/>
 
     <!-- This is the rule currently being processed -->
     <xsl:variable name="rule" select="."/>
@@ -2663,11 +3084,53 @@ against infinite loops -->
 
     <xsl:variable
       name="selectedElements"
-      select="$elements[contains($e,concat('|',name(),'|'))
-            or 
-            (contains($e,'|node|') and name()='way' and key('wayByNode',@id))
+      select="$elements[
+              (
+                  not( $rule/@closed )
+                  and
+                  (
+                      (contains($e,'|way|') and name()='way')
+                      or
+                      (contains($e,'|node|') and name()='node')
+                      or
+                      (contains($e,'|node|') and name()='way' and key('wayByNode',@id))
+                  )
+              )
+              or
+              (
+                  $rule/@closed='yes'
+                  and
+                  contains($e,'|way|') and name()='way'
+                  and
+                  not(
+                      tag[@k='area' and (@v='no' or @v='false')]
+                  )
+                  and
+                  count(nd) &gt; 2
+                  and
+                  nd[1]/@ref = nd[last()]/@ref
+              )
+              or
+              (
+                  $rule/@closed='no'
+                  and
+                  contains($e,'|way|') and name()='way'
+                  and
+                  not(
+                      not(
+                          tag[@k='area' and (@v='no' or @v='false')]
+                      )
+                      and
+                      count(nd) &gt; 2
+                      and
+                      nd[1]/@ref = nd[last()]/@ref
+                  )
+                  and
+                  not(
+                      tag[@k='area' and (@v='yes' or @v='true')]
+                  )
+              )
             ]"/>
-
 
     <!-- Patch $s -->
     <xsl:choose>
@@ -2684,7 +3147,6 @@ against infinite loops -->
                   <xsl:with-param name="eBare" select="$eBare"/>
                   <xsl:with-param name="kBare" select="$kBare"/>
                   <xsl:with-param name="vBare" select="$vBare"/>
-                  <xsl:with-param name="layer" select="$layer"/>
                   <xsl:with-param name="elements" select="$elementsWithNoTags"/>
                   <xsl:with-param name="rule" select="$rule"/>
                 </xsl:call-template>
@@ -2696,7 +3158,6 @@ against infinite loops -->
                   <xsl:with-param name="eBare" select="$eBare"/>
                   <xsl:with-param name="kBare" select="$kBare"/>
                   <xsl:with-param name="vBare" select="$vBare"/>
-                  <xsl:with-param name="layer" select="$layer"/>
                   <xsl:with-param name="elements" select="$allElements"/>
                   <xsl:with-param name="rule" select="$rule"/>
                 </xsl:call-template>
@@ -2708,7 +3169,6 @@ against infinite loops -->
                   <xsl:with-param name="eBare" select="$eBare"/>
                   <xsl:with-param name="kBare" select="$kBare"/>
                   <xsl:with-param name="vBare" select="$vBare"/>
-                  <xsl:with-param name="layer" select="$layer"/>
                   <xsl:with-param name="elements" select="$allElementsWithValue"/>
                   <xsl:with-param name="rule" select="$rule"/>
                 </xsl:call-template>
@@ -2722,7 +3182,6 @@ against infinite loops -->
               <xsl:with-param name="eBare" select="$eBare"/>
               <xsl:with-param name="kBare" select="$kBare"/>
               <xsl:with-param name="vBare" select="$vBare"/>
-              <xsl:with-param name="layer" select="$layer"/>
               <xsl:with-param name="elements" select="$elementsWithoutKey"/>
               <xsl:with-param name="rule" select="$rule"/>
             </xsl:call-template>
@@ -2734,7 +3193,6 @@ against infinite loops -->
               <xsl:with-param name="eBare" select="$eBare"/>
               <xsl:with-param name="kBare" select="$kBare"/>
               <xsl:with-param name="vBare" select="$vBare"/>
-              <xsl:with-param name="layer" select="$layer"/>
               <xsl:with-param name="elements" select="$allElementsWithKey"/>
               <xsl:with-param name="rule" select="$rule"/>
             </xsl:call-template>
@@ -2751,7 +3209,6 @@ against infinite loops -->
               <xsl:with-param name="eBare" select="$eBare"/>
               <xsl:with-param name="kBare" select="$kBare"/>
               <xsl:with-param name="vBare" select="$vBare"/>
-              <xsl:with-param name="layer" select="$layer"/>
               <xsl:with-param name="elements" select="$elementsWithKey"/>
               <xsl:with-param name="rule" select="$rule"/>
             </xsl:call-template>
@@ -2770,7 +3227,6 @@ against infinite loops -->
                   <xsl:with-param name="eBare" select="$eBare"/>
                   <xsl:with-param name="kBare" select="$kBare"/>
                   <xsl:with-param name="vBare" select="$vBare"/>
-                  <xsl:with-param name="layer" select="$layer"/>
                   <xsl:with-param name="elements" select="$elementsWithNoTags"/>
                   <xsl:with-param name="rule" select="$rule"/>
                 </xsl:call-template>
@@ -2781,7 +3237,6 @@ against infinite loops -->
                   <xsl:with-param name="eBare" select="$eBare"/>
                   <xsl:with-param name="kBare" select="$kBare"/>
                   <xsl:with-param name="vBare" select="$vBare"/>
-                  <xsl:with-param name="layer" select="$layer"/>
                   <xsl:with-param name="elements" select="$allElements"/>
                   <xsl:with-param name="rule" select="$rule"/>
                 </xsl:call-template>
@@ -2792,7 +3247,6 @@ against infinite loops -->
                   <xsl:with-param name="eBare" select="$eBare"/>
                   <xsl:with-param name="kBare" select="$kBare"/>
                   <xsl:with-param name="vBare" select="$vBare"/>
-                  <xsl:with-param name="layer" select="$layer"/>
                   <xsl:with-param name="elements" select="$allElementsWithValue"/>
                   <xsl:with-param name="rule" select="$rule"/>
                 </xsl:call-template>
@@ -2805,7 +3259,6 @@ against infinite loops -->
               <xsl:with-param name="eBare" select="$eBare"/>
               <xsl:with-param name="kBare" select="$kBare"/>
               <xsl:with-param name="vBare" select="$vBare"/>
-              <xsl:with-param name="layer" select="$layer"/>
               <xsl:with-param name="elements" select="$elementsWithoutKey"/>
               <xsl:with-param name="rule" select="$rule"/>
             </xsl:call-template>
@@ -2816,7 +3269,6 @@ against infinite loops -->
               <xsl:with-param name="eBare" select="$eBare"/>
               <xsl:with-param name="kBare" select="$kBare"/>
               <xsl:with-param name="vBare" select="$vBare"/>
-              <xsl:with-param name="layer" select="$layer"/>
               <xsl:with-param name="elements" select="$allElementsWithKey"/>
               <xsl:with-param name="rule" select="$rule"/>
             </xsl:call-template>
@@ -2827,7 +3279,6 @@ against infinite loops -->
               <xsl:with-param name="eBare" select="$eBare"/>
               <xsl:with-param name="kBare" select="$kBare"/>
               <xsl:with-param name="vBare" select="$vBare"/>
-              <xsl:with-param name="layer" select="$layer"/>
               <xsl:with-param name="elements" select="$elementsWithKey"/>
               <xsl:with-param name="rule" select="$rule"/>
             </xsl:call-template>
@@ -2840,7 +3291,6 @@ against infinite loops -->
 
   <xsl:template match="else">
     <xsl:param name="elements"/>
-    <xsl:param name="layer"/>
 
     <!-- This is the previous rule that is being negated -->
     <!-- TODO: abort if no preceding rule element -->
@@ -2881,10 +3331,53 @@ against infinite loops -->
 
     <xsl:variable
       name="selectedElements"
-      select="$elements[contains($e,concat('|',name(),'|'))
-              or 
-              (contains($e,'|node|') and name()='way'and key('wayByNode',@id))
-              ]"/>
+      select="$elements[
+              (
+                  not( $rule/@closed )
+                  and
+                  (
+                      (contains($e,'|way|') and name()='way')
+                      or
+                      (contains($e,'|node|') and name()='node')
+                      or
+                      (contains($e,'|node|') and name()='way' and key('wayByNode',@id))
+                  )
+              )
+              or
+              (
+                  $rule/@closed='yes'
+                  and
+                  contains($e,'|way|') and name()='way'
+                  and
+                  not(
+                      tag[@k='area' and (@v='no' or @v='false')]
+                  )
+                  and
+                  count(nd) &gt; 2
+                  and
+                  nd[1]/@ref = nd[last()]/@ref
+              )
+              or
+              (
+                  $rule/@closed='no'
+                  and
+                  contains($e,'|way|') and name()='way'
+                  and
+                  not(
+                      not(
+                          tag[@k='area' and (@v='no' or @v='false')]
+                      )
+                      and
+                      count(nd) &gt; 2
+                      and
+                      nd[1]/@ref = nd[last()]/@ref
+                  )
+                  and
+                  not(
+                      tag[@k='area' and (@v='yes' or @v='true')]
+                  )
+              )
+            ]"/>
 
     <!-- Patch $s -->
     <xsl:choose>
@@ -2898,7 +3391,6 @@ against infinite loops -->
                   <xsl:with-param name="eBare" select="$eBare"/>
                   <xsl:with-param name="kBare" select="$kBare"/>
                   <xsl:with-param name="vBare" select="$vBare"/>
-                  <xsl:with-param name="layer" select="$layer"/>
                   <xsl:with-param name="elements" select="$elementsWithNoTags"/>
                   <xsl:with-param name="rule" select="$rule"/>
                 </xsl:call-template>
@@ -2912,7 +3404,6 @@ against infinite loops -->
                   <xsl:with-param name="eBare" select="$eBare"/>
                   <xsl:with-param name="kBare" select="$kBare"/>
                   <xsl:with-param name="vBare" select="$vBare"/>
-                  <xsl:with-param name="layer" select="$layer"/>
                   <xsl:with-param name="elements" select="$allElementsWithValue"/>
                   <xsl:with-param name="rule" select="$rule"/>
                 </xsl:call-template>
@@ -2925,7 +3416,6 @@ against infinite loops -->
               <xsl:with-param name="eBare" select="$eBare"/>
               <xsl:with-param name="kBare" select="$kBare"/>
               <xsl:with-param name="vBare" select="$vBare"/>
-              <xsl:with-param name="layer" select="$layer"/>
               <xsl:with-param name="elements" select="$elementsWithoutKey"/>
               <xsl:with-param name="rule" select="$rule"/>
             </xsl:call-template>
@@ -2936,7 +3426,6 @@ against infinite loops -->
               <xsl:with-param name="eBare" select="$eBare"/>
               <xsl:with-param name="kBare" select="$kBare"/>
               <xsl:with-param name="vBare" select="$vBare"/>
-              <xsl:with-param name="layer" select="$layer"/>
               <xsl:with-param name="elements" select="$allElementsWithKey"/>
               <xsl:with-param name="rule" select="$rule"/>
             </xsl:call-template>
@@ -2951,7 +3440,6 @@ against infinite loops -->
               <xsl:with-param name="eBare" select="$eBare"/>
               <xsl:with-param name="kBare" select="$kBare"/>
               <xsl:with-param name="vBare" select="$vBare"/>
-              <xsl:with-param name="layer" select="$layer"/>
               <xsl:with-param name="elements" select="$elementsWithKey"/>
               <xsl:with-param name="rule" select="$rule"/>
             </xsl:call-template>
@@ -2970,7 +3458,6 @@ against infinite loops -->
                   <xsl:with-param name="eBare" select="$eBare"/>
                   <xsl:with-param name="kBare" select="$kBare"/>
                   <xsl:with-param name="vBare" select="$vBare"/>
-                  <xsl:with-param name="layer" select="$layer"/>
                   <xsl:with-param name="elements" select="$elementsWithNoTags"/>
                   <xsl:with-param name="rule" select="$rule"/>
                 </xsl:call-template>
@@ -2984,7 +3471,6 @@ against infinite loops -->
                   <xsl:with-param name="eBare" select="$eBare"/>
                   <xsl:with-param name="kBare" select="$kBare"/>
                   <xsl:with-param name="vBare" select="$vBare"/>
-                  <xsl:with-param name="layer" select="$layer"/>
                   <xsl:with-param name="elements" select="$allElementsWithValue"/>
                   <xsl:with-param name="rule" select="$rule"/>
                 </xsl:call-template>
@@ -2997,7 +3483,6 @@ against infinite loops -->
               <xsl:with-param name="eBare" select="$eBare"/>
               <xsl:with-param name="kBare" select="$kBare"/>
               <xsl:with-param name="vBare" select="$vBare"/>
-              <xsl:with-param name="layer" select="$layer"/>
               <xsl:with-param name="elements" select="$elementsWithoutKey"/>
               <xsl:with-param name="rule" select="$rule"/>
             </xsl:call-template>
@@ -3008,7 +3493,6 @@ against infinite loops -->
               <xsl:with-param name="eBare" select="$eBare"/>
               <xsl:with-param name="kBare" select="$kBare"/>
               <xsl:with-param name="vBare" select="$vBare"/>
-              <xsl:with-param name="layer" select="$layer"/>
               <xsl:with-param name="elements" select="$allElementsWithKey"/>
               <xsl:with-param name="rule" select="$rule"/>
             </xsl:call-template>
@@ -3019,7 +3503,6 @@ against infinite loops -->
               <xsl:with-param name="eBare" select="$eBare"/>
               <xsl:with-param name="kBare" select="$kBare"/>
               <xsl:with-param name="vBare" select="$vBare"/>
-              <xsl:with-param name="layer" select="$layer"/>
               <xsl:with-param name="elements" select="$elementsWithKey"/>
               <xsl:with-param name="rule" select="$rule"/>
             </xsl:call-template>
@@ -3034,85 +3517,52 @@ against infinite loops -->
     <xsl:param name="eBare"/>
     <xsl:param name="kBare"/>
     <xsl:param name="vBare"/>
-    <xsl:param name="layer"/>
     <xsl:param name="elements"/>
     <xsl:param name="rule"/>
-
+    <xsl:param name="filterIterator" select="0"/>
 
     <xsl:if test="$elements">
   
       <!-- elementCount is the number of elements we started with (just used for the progress message) -->
       <xsl:variable name="elementCount" select="count($elements)"/>
-      <!-- If there's a proximity attribute on the rule then filter elements based on proximity -->
+
       <xsl:choose>
-        <xsl:when test='$rule/@verticalProximity'>
-          <xsl:variable name='nearbyElements1'>
-            <xsl:call-template name="proximityFilter">
-              <xsl:with-param name="elements" select="$elements"/>
-              <xsl:with-param name="horizontalProximity" select="$rule/@horizontalProximity div 32"/>
-              <xsl:with-param name="verticalProximity" select="$rule/@verticalProximity div 32"/>
-            </xsl:call-template>
-          </xsl:variable>
-          <xsl:variable name='nearbyElements2'>
-            <xsl:call-template name="proximityFilter">
-              <xsl:with-param name="elements" select="exslt:node-set($nearbyElements1)/*"/>
-              <xsl:with-param name="horizontalProximity" select="$rule/@horizontalProximity div 16"/>
-              <xsl:with-param name="verticalProximity" select="$rule/@verticalProximity div 16"/>
-            </xsl:call-template>
-          </xsl:variable>
-          <xsl:variable name='nearbyElements3'>
-            <xsl:call-template name="proximityFilter">
-              <xsl:with-param name="elements" select="exslt:node-set($nearbyElements2)/*"/>
-              <xsl:with-param name="horizontalProximity" select="$rule/@horizontalProximity div 8"/>
-              <xsl:with-param name="verticalProximity" select="$rule/@verticalProximity div 8"/>
-            </xsl:call-template>
-          </xsl:variable>
-          <xsl:variable name='nearbyElements4'>
-            <xsl:call-template name="proximityFilter">
-              <xsl:with-param name="elements" select="exslt:node-set($nearbyElements3)/*"/>
-              <xsl:with-param name="horizontalProximity" select="$rule/@horizontalProximity div 4"/>
-              <xsl:with-param name="verticalProximity" select="$rule/@verticalProximity div 4"/>
-            </xsl:call-template>
-          </xsl:variable>
-          <xsl:variable name='nearbyElements5'>
-            <xsl:call-template name="proximityFilter">
-              <xsl:with-param name="elements" select="exslt:node-set($nearbyElements4)/*"/>
-              <xsl:with-param name="horizontalProximity" select="$rule/@horizontalProximity div 2"/>
-              <xsl:with-param name="verticalProximity" select="$rule/@verticalProximity div 2"/>
-            </xsl:call-template>
-          </xsl:variable>
-          <xsl:variable name='nearbyElementsRtf'>
-            <xsl:call-template name="proximityFilter">
-              <xsl:with-param name="elements" select="exslt:node-set($nearbyElements5)/*"/>
-              <xsl:with-param name="horizontalProximity" select="$rule/@horizontalProximity"/>
-              <xsl:with-param name="verticalProximity" select="$rule/@verticalProximity"/>
-            </xsl:call-template>
-          </xsl:variable>
-
-          <!-- Convert nearbyElements rtf to a node-set -->
-          <xsl:variable name="nearbyElements" select="exslt:node-set($nearbyElementsRtf)/*"/>
-
-          <xsl:message>
-            Processing &lt;rule e="<xsl:value-of select="$eBare"/>" k="<xsl:value-of select="$kBare"/>" v="<xsl:value-of select="$vBare"/>"
-                        horizontalProximity="<xsl:value-of select="$rule/@horizontalProximity"/>" verticalProximity="<xsl:value-of select="$rule/@verticalProximity"/>" &gt;
-            Matched by <xsl:value-of select="count($nearbyElements)"/> out of <xsl:value-of select="count($elements)"/> elements for layer <xsl:value-of select="$layer"/>.
-          </xsl:message>
-
-          <xsl:apply-templates select="*">
-            <xsl:with-param name="layer" select="$layer"/>
-            <xsl:with-param name="elements" select="$nearbyElements"/>
+        <xsl:when test='$rule/@verticalProximity and $rule/@horizontalProximity and $filterIterator &lt; 1'>
+          <xsl:call-template name="filterProximity">
+            <xsl:with-param name="eBare" select="$eBare"/>
+            <xsl:with-param name="kBare" select="$kBare"/>
+            <xsl:with-param name="vBare" select="$vBare"/>
+            <xsl:with-param name="elements" select="$elements"/>
             <xsl:with-param name="rule" select="$rule"/>
-          </xsl:apply-templates>
+            <xsl:with-param name="filterIterator" select="1"/>
+          </xsl:call-template>
+        </xsl:when>
+        <xsl:when test='$rule/@notConnectedSameTag and $filterIterator &lt; 2'>
+          <xsl:call-template name="filterConnected">
+            <xsl:with-param name="eBare" select="$eBare"/>
+            <xsl:with-param name="kBare" select="$kBare"/>
+            <xsl:with-param name="vBare" select="$vBare"/>
+            <xsl:with-param name="elements" select="$elements"/>
+            <xsl:with-param name="rule" select="$rule"/>
+            <xsl:with-param name="filterIterator" select="2"/>
+          </xsl:call-template>
+        </xsl:when>
+        <xsl:when test='$rule/@minSize and $filterIterator &lt; 3'>
+          <xsl:call-template name="filterMinSize">
+            <xsl:with-param name="eBare" select="$eBare"/>
+            <xsl:with-param name="kBare" select="$kBare"/>
+            <xsl:with-param name="vBare" select="$vBare"/>
+            <xsl:with-param name="elements" select="$elements"/>
+            <xsl:with-param name="rule" select="$rule"/>
+            <xsl:with-param name="filterIterator" select="3"/>
+          </xsl:call-template>
         </xsl:when>
         <xsl:otherwise>
-
           <xsl:message>
             Processing &lt;rule e="<xsl:value-of select="$eBare"/>" k="<xsl:value-of select="$kBare"/>" v="<xsl:value-of select="$vBare"/>" &gt;
-            Matched by <xsl:value-of select="count($elements)"/> elements for layer <xsl:value-of select="$layer"/>.
           </xsl:message>
 
           <xsl:apply-templates select="*">
-            <xsl:with-param name="layer" select="$layer"/>
             <xsl:with-param name="elements" select="$elements"/>
             <xsl:with-param name="rule" select="$rule"/>
           </xsl:apply-templates>
@@ -3121,6 +3571,74 @@ against infinite loops -->
     </xsl:if>
   </xsl:template>
 
+  <xsl:template name="filterProximity">
+    <xsl:param name="eBare"/>
+    <xsl:param name="kBare"/>
+    <xsl:param name="vBare"/>
+    <xsl:param name="elements"/>
+    <xsl:param name="rule"/>
+    <xsl:param name="filterIterator"/>
+    
+    <xsl:variable name='nearbyElements1'>
+      <xsl:call-template name="proximityFilter">
+        <xsl:with-param name="elements" select="$elements"/>
+        <xsl:with-param name="horizontalProximity" select="$rule/@horizontalProximity div 32"/>
+        <xsl:with-param name="verticalProximity" select="$rule/@verticalProximity div 32"/>
+      </xsl:call-template>
+    </xsl:variable>
+    <xsl:variable name='nearbyElements2'>
+      <xsl:call-template name="proximityFilter">
+        <xsl:with-param name="elements" select="exslt:node-set($nearbyElements1)/*"/>
+        <xsl:with-param name="horizontalProximity" select="$rule/@horizontalProximity div 16"/>
+        <xsl:with-param name="verticalProximity" select="$rule/@verticalProximity div 16"/>
+      </xsl:call-template>
+    </xsl:variable>
+    <xsl:variable name='nearbyElements3'>
+      <xsl:call-template name="proximityFilter">
+        <xsl:with-param name="elements" select="exslt:node-set($nearbyElements2)/*"/>
+        <xsl:with-param name="horizontalProximity" select="$rule/@horizontalProximity div 8"/>
+        <xsl:with-param name="verticalProximity" select="$rule/@verticalProximity div 8"/>
+      </xsl:call-template>
+    </xsl:variable>
+    <xsl:variable name='nearbyElements4'>
+      <xsl:call-template name="proximityFilter">
+        <xsl:with-param name="elements" select="exslt:node-set($nearbyElements3)/*"/>
+        <xsl:with-param name="horizontalProximity" select="$rule/@horizontalProximity div 4"/>
+        <xsl:with-param name="verticalProximity" select="$rule/@verticalProximity div 4"/>
+      </xsl:call-template>
+    </xsl:variable>
+    <xsl:variable name='nearbyElements5'>
+      <xsl:call-template name="proximityFilter">
+        <xsl:with-param name="elements" select="exslt:node-set($nearbyElements4)/*"/>
+        <xsl:with-param name="horizontalProximity" select="$rule/@horizontalProximity div 2"/>
+        <xsl:with-param name="verticalProximity" select="$rule/@verticalProximity div 2"/>
+      </xsl:call-template>
+    </xsl:variable>
+    <xsl:variable name='nearbyElementsRtf'>
+      <xsl:call-template name="proximityFilter">
+        <xsl:with-param name="elements" select="exslt:node-set($nearbyElements5)/*"/>
+        <xsl:with-param name="horizontalProximity" select="$rule/@horizontalProximity"/>
+        <xsl:with-param name="verticalProximity" select="$rule/@verticalProximity"/>
+      </xsl:call-template>
+    </xsl:variable>
+    
+    <!-- Convert nearbyElements rtf to a node-set -->
+    <xsl:variable name="nearbyElements" select="exslt:node-set($nearbyElementsRtf)/*"/>
+    
+    <xsl:message>
+      Processing &lt;rule e="<xsl:value-of select="$eBare"/>" k="<xsl:value-of select="$kBare"/>" v="<xsl:value-of select="$vBare"/>"
+      horizontalProximity="<xsl:value-of select="$rule/@horizontalProximity"/>" verticalProximity="<xsl:value-of select="$rule/@verticalProximity"/>" &gt;
+    </xsl:message>
+
+    <xsl:call-template name="processElements">
+      <xsl:with-param name="eBare" select="$eBare"/>
+      <xsl:with-param name="kBare" select="$kBare"/>
+      <xsl:with-param name="vBare" select="$vBare"/>
+      <xsl:with-param name="elements" select="$nearbyElements"/>
+      <xsl:with-param name="rule" select="$rule"/>
+      <xsl:with-param name="filterIterator" select="$filterIterator"/>
+    </xsl:call-template>
+  </xsl:template>
 
   <!-- Select elements that are not within the specified distance from any other element -->
   <xsl:template name="proximityFilter">
@@ -3156,6 +3674,106 @@ against infinite loops -->
     </xsl:for-each>
   </xsl:template>
 
+  <xsl:template name="filterConnected">
+    <xsl:param name="eBare"/>
+    <xsl:param name="kBare"/>
+    <xsl:param name="vBare"/>
+    <xsl:param name="elements"/>
+    <xsl:param name="rule"/>
+    <xsl:param name="filterIterator"/>
+
+    <xsl:variable name="filteredElementsRTF">
+      <xsl:for-each select="$elements">
+        <xsl:variable name="id" select="@id" />
+        <xsl:variable name="value" select="tag[@k=$rule/@notConnectedSameTag]/@v" />
+        <xsl:if test="not(/osm/way[@id != $id][tag[@k=$rule/@notConnectedSameTag and @v=$value]][nd/@ref=current()/nd/@ref])">
+          <xsl:copy-of select="." />
+        </xsl:if>
+      </xsl:for-each>
+    </xsl:variable>
+    <xsl:variable name="filteredElements" select="exslt:node-set($filteredElementsRTF)/*" />
+
+    <xsl:call-template name="processElements">
+      <xsl:with-param name="eBare" select="$eBare"/>
+      <xsl:with-param name="kBare" select="$kBare"/>
+      <xsl:with-param name="vBare" select="$vBare"/>
+      <xsl:with-param name="elements" select="$filteredElements"/>
+      <xsl:with-param name="rule" select="$rule"/>
+      <xsl:with-param name="filterIterator" select="$filterIterator"/>
+    </xsl:call-template>
+  </xsl:template>
+
+  <xsl:template name="filterMinSize">
+    <xsl:param name="eBare"/>
+    <xsl:param name="kBare"/>
+    <xsl:param name="vBare"/>
+    <xsl:param name="elements"/>
+    <xsl:param name="rule"/>
+    <xsl:param name="filterIterator"/>
+
+    <xsl:variable name="filteredElementsRTF">
+      <xsl:for-each select="$elements">
+        <xsl:variable name="maxLat">
+          <xsl:for-each select="$data/osm/node[@id=current()/nd/@ref]/@lat">
+            <xsl:sort data-type="number" order="descending"/>
+            <xsl:if test="position()=1">
+              <xsl:value-of select="."/>
+            </xsl:if>
+          </xsl:for-each>
+        </xsl:variable>
+        <xsl:variable name="minLat">
+          <xsl:for-each select="$data/osm/node[@id=current()/nd/@ref]/@lat">
+            <xsl:sort data-type="number" order="ascending"/>
+            <xsl:if test="position()=1">
+              <xsl:value-of select="."/>
+            </xsl:if>
+          </xsl:for-each>
+        </xsl:variable>
+        <xsl:variable name="maxLon">
+          <xsl:for-each select="$data/osm/node[@id=current()/nd/@ref]/@lon">
+            <xsl:sort data-type="number" order="descending"/>
+            <xsl:if test="position()=1">
+              <xsl:value-of select="."/>
+            </xsl:if>
+          </xsl:for-each>
+        </xsl:variable>
+        <xsl:variable name="minLon">
+          <xsl:for-each select="$data/osm/node[@id=current()/nd/@ref]/@lon">
+            <xsl:sort data-type="number" order="ascending"/>
+            <xsl:if test="position()=1">
+              <xsl:value-of select="."/>
+            </xsl:if>
+          </xsl:for-each>
+        </xsl:variable>
+        <xsl:variable name="latDiff" select="$maxLat - $minLat" />
+        <xsl:variable name="lonDiff" select="$maxLon - $minLon" />
+
+        <!--
+            cirfer = T + (N * [1.05 - ([t - 5] / 90)])
+            
+            T Latitude difference N Longitude difference t absolute Latitude The formula interpolates a cosine function with +10% error at the poles/equator and -10% error in the north Italy. 
+        -->
+        <xsl:variable name="size" select="$latDiff + ($lonDiff * (1.05 - (($maxLat - 5) div 90)))" />
+        <xsl:message>
+          <xsl:value-of select="@id" /> size = <xsl:value-of select="$size" />
+        </xsl:message>
+
+        <xsl:if test="$size &gt; $rule/@minSize">
+          <xsl:copy-of select="." />
+        </xsl:if>
+      </xsl:for-each>
+    </xsl:variable>
+    <xsl:variable name="filteredElements" select="exslt:node-set($filteredElementsRTF)/*" />
+
+    <xsl:call-template name="processElements">
+      <xsl:with-param name="eBare" select="$eBare"/>
+      <xsl:with-param name="kBare" select="$kBare"/>
+      <xsl:with-param name="vBare" select="$vBare"/>
+      <xsl:with-param name="elements" select="$filteredElements"/>
+      <xsl:with-param name="rule" select="$rule"/>
+      <xsl:with-param name="filterIterator" select="$filterIterator"/>
+    </xsl:call-template>
+  </xsl:template>
 
   <!-- Draw SVG layers -->
   <xsl:template match="layer">
