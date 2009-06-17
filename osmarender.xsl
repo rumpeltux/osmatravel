@@ -73,6 +73,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
   <xsl:param name="showLicense" select="/rules/@showLicense"/>
 
   <xsl:param name="showRelationRoute" select="/rules/@showRelationRoute"/>
+  <xsl:param name="showRelationBoundary" select="/rules/@showRelationBoundary"/>
 
   <xsl:param name="meter2pixelFactor" select="/rules/@meter2pixel"/>
 
@@ -1171,6 +1172,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 
     <xsl:variable name="relation" select="@id"/>
 
+    <xsl:message>Processing route relation.</xsl:message>
+
     <xsl:if test="(tag[@k='type']/@v='route') and ($showRelationRoute!='~|no')">
       <!-- Draw lines for a RelationRoute -->
       <xsl:for-each select="$data/osm/relation[@id=$relation]/member[@type='way']">
@@ -1195,10 +1198,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 
   </xsl:template>
 
+  <xsl:include href="boundary_relations.xsl"/>
 
   <!-- Process an <area> instruction -->
   <xsl:template match="area" mode="render">
     <xsl:param name="elements"/>
+
+    <xsl:message>Processing &lt;area&gt; for <xsl:value-of select="count($elements)"/> elements.</xsl:message>
 
     <!-- This is the instruction that is currently being processed -->
     <xsl:variable name="instruction" select="."/>
@@ -1573,7 +1579,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         </xsl:message>
         <xsl:value-of select="concat($element/tag[@k='osmarender:areaCenterLon']/@v,',',$element/tag[@k='osmarender:areaCenterLat']/@v)"/>
       </xsl:when>
-      <xsl:when test="count($element/nd) &gt; 2 and count($element/nd) &lt; 150">
+      <xsl:when test="count($element/nd) &gt; 2 and count($element/nd) &lt; 2">
         <xsl:call-template name="areaCenter">
           <xsl:with-param name="element" select="$element" />
         </xsl:call-template>
@@ -3091,6 +3097,8 @@ against infinite loops -->
                   (
                       (contains($e,'|way|') and name()='way')
                       or
+                      (contains($e,'|relation|') and name()='relation')
+                      or
                       (contains($e,'|node|') and name()='node')
                       or
                       (contains($e,'|node|') and name()='way' and key('wayByNode',@id))
@@ -3100,7 +3108,11 @@ against infinite loops -->
               (
                   $rule/@closed='yes'
                   and
-                  contains($e,'|way|') and name()='way'
+                  (
+                      (contains($e,'|way|') and name()='way')
+                      or
+                      (contains($e,'|relation|') and name()='relation')
+                  )
                   and
                   not(
                       tag[@k='area' and (@v='no' or @v='false')]

@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xsl:stylesheet>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" 
+        xmlns="http://www.w3.org/2000/svg"
+        xmlns:xlink="http://www.w3.org/1999/xlink"
+        xmlns:svg="http://www.w3.org/2000/svg" >
   <!-- Draw areas for a boundary relation -->
   <xsl:template match="relation" mode="area">
     <xsl:param name="instruction"/>
@@ -28,11 +31,16 @@
         </xsl:call-template>
       </xsl:variable>
       <xsl:if test ="$pathArea!=''">
-        <path id="area_{@id}" d="{$pathArea}"/>
-        <xsl:call-template name="renderArea">
+        <path id="area_{@id}" d="{$pathArea}">
+            <xsl:apply-templates select="$instruction/@*" mode="copyAttributes"/>
+        </path>
+        <xsl:message><xsl:value-of select="@id"/></xsl:message>
+        <!--xsl:call-template name="renderArea">
           <xsl:with-param name="instruction" select="$instruction"/>
           <xsl:with-param name="pathId" select="concat('area_',@id)"/>
-        </xsl:call-template>
+        </xsl:call-template-->
+        <use xlink:href="concat('#area_',@id)">
+        </use>
       </xsl:if>
     </xsl:if>
   </xsl:template>
