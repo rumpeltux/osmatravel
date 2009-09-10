@@ -162,7 +162,7 @@ svg_page.html : Config.mk
 
 
 # Build the rules file
-wikitravel-print-rules.xml : icon_rules.xsl variables.xsl listings-all.xml relation.xml style-*.xsl
+wikitravel-print-rules.xml : icon_rules.xsl variables.xsl listings.xml relation.xml style-*.xsl
 	${XML} tr icon_rules.xsl \
 		-s border="$(call getval,border)" \
 		-s listingsPlacement="$(call getval,listings_placement,auto)" \
