@@ -242,10 +242,10 @@ listings.txt : listings-all.xml
 
 # get a list of the named nodes in our OSM data
 namednodes.txt : data.osm
-	${XML} sel -T -t -m "//node/tag[@k='name']"  -v @v -n $< > $@
-	${XML} sel -T -t -m "//way/tag[@k='name']"  -v @v -n $< >> $@
-	${XML} sel -T -t -m "//node/tag[@k='name:en']"  -v @v -n $< >> $@
-	${XML} sel -T -t -m "//way/tag[@k='name:en']"  -v @v -n $< >> $@
+	${XML} sel -T -t -m "//node/tag[@k='name']"  -v @v -n $< > $@ || true
+	${XML} sel -T -t -m "//way/tag[@k='name']"  -v @v -n $< >> $@ || true
+	${XML} sel -T -t -m "//node/tag[@k='name:en']"  -v @v -n $< >> $@ || true
+	${XML} sel -T -t -m "//way/tag[@k='name:en']"  -v @v -n $< >> $@ || true
 
 
 
