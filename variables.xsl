@@ -43,41 +43,70 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:variable name="ratio" select="$dataWidth div $dataHeight"/>
 
     <xsl:variable name="reldata" select="document('relation.xml')"/>
+    <xsl:variable name="mapdata" select="document('data.osm')"/>
 
     <xsl:variable name="bottomLeftLatitude">
-        <xsl:for-each select="$reldata/osm/node">
-            <xsl:sort select="@lat" data-type="number"/>
-            <xsl:if test="position() = 1">
-                <xsl:value-of select="@lat"/>
-            </xsl:if>
-        </xsl:for-each>
+        <xsl:choose>
+            <xsl:when test="count($reldata/osm/node) &gt; 0">
+                <xsl:for-each select="$reldata/osm/node">
+                    <xsl:sort select="@lat" data-type="number"/>
+                    <xsl:if test="position() = 1">
+                        <xsl:value-of select="@lat"/>
+                    </xsl:if>
+                </xsl:for-each>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:value-of select="$mapdata//bounds/@minlat" />
+            </xsl:otherwise>
+        </xsl:choose>
     </xsl:variable>
 
     <xsl:variable name="topRightLatitude">
-        <xsl:for-each select="$reldata/osm/node">
-            <xsl:sort select="@lat" data-type="number"/>
-            <xsl:if test="position() = last()">
-                <xsl:value-of select="@lat"/>
-            </xsl:if>
-        </xsl:for-each>
+        <xsl:choose>
+            <xsl:when test="count($reldata/osm/node) &gt; 0">
+                <xsl:for-each select="$reldata/osm/node">
+                    <xsl:sort select="@lat" data-type="number"/>
+                    <xsl:if test="position() = last()">
+                        <xsl:value-of select="@lat"/>
+                    </xsl:if>
+                </xsl:for-each>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:value-of select="$mapdata//bounds/@maxlat" />
+            </xsl:otherwise>
+        </xsl:choose>
     </xsl:variable>
 
     <xsl:variable name="bottomLeftLongitude">
-        <xsl:for-each select="$reldata/osm/node">
-            <xsl:sort select="@lon" data-type="number"/>
-            <xsl:if test="position() = 1">
-                <xsl:value-of select="@lon"/>
-            </xsl:if>
-        </xsl:for-each>
+        <xsl:choose>
+            <xsl:when test="count($reldata/osm/node) &gt; 0">
+                <xsl:for-each select="$reldata/osm/node">
+                    <xsl:sort select="@lon" data-type="number"/>
+                    <xsl:if test="position() = 1">
+                        <xsl:value-of select="@lon"/>
+                    </xsl:if>
+                </xsl:for-each>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:value-of select="$mapdata//bounds/@minlon" />
+            </xsl:otherwise>
+        </xsl:choose>
     </xsl:variable>
 
     <xsl:variable name="topRightLongitude">
-        <xsl:for-each select="$reldata/osm/node">
-            <xsl:sort select="@lon" data-type="number"/>
-            <xsl:if test="position() = last()">
-                <xsl:value-of select="@lon"/>
-            </xsl:if>
-        </xsl:for-each>
+        <xsl:choose>
+            <xsl:when test="count($reldata/osm/node) &gt; 0">
+                <xsl:for-each select="$reldata/osm/node">
+                    <xsl:sort select="@lon" data-type="number"/>
+                    <xsl:if test="position() = last()">
+                        <xsl:value-of select="@lon"/>
+                    </xsl:if>
+                </xsl:for-each>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:value-of select="$mapdata//bounds/@maxlon" />
+            </xsl:otherwise>
+        </xsl:choose>
     </xsl:variable>
 
     <!-- Derive the latitude of the middle of the map -->
