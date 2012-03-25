@@ -51,7 +51,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:variable name="bottomOffset" select="document($rulesfile)/rules/@bottomOffset"/>
     <xsl:variable name="projection" select="document($rulesfile)/rules/@projection"/>
     <xsl:variable name="dataWidth" select="document($rulesfile)/rules/@dataWidth"/>
-    <xsl:variable name="dataHeight" select="document($rulesfile)/rules/@dataHeight"/>
+    <xsl:variable name="dataHeight" select="document($rulesfile)/rules/@dataHeight - 20"/>
 
     <xsl:variable name="pixelLineHeight">
         <xsl:choose>
@@ -883,7 +883,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 
             <svg:g>
                 <xsl:attribute name="transform">
-                    <xsl:text>translate(8,228)</xsl:text>
+                    <xsl:text>translate(8,</xsl:text>
+                    <xsl:value-of select="$height - 75"/>
+                    <xsl:text>)</xsl:text>
                 </xsl:attribute>
                 <svg:use xlink:href="#wikitravel-logo" transform="scale(0.12)" />
             </svg:g>
