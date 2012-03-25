@@ -541,22 +541,65 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         <xsl:param name="lastListing"/>
         <xsl:param name="x" required="yes" select="4"/>
         <xsl:param name="y" required="yes" select="4"/>
+        <xsl:variable name="lastListing" select="$lastListing"/>
+        <xsl:variable name="firstListing" select="$firstListing"/>
         <xsl:message>
               firstListing: <xsl:value-of select="$firstListing"/>
                lastListing: <xsl:value-of select="$lastListing"/>
         </xsl:message>
+        
+        <xsl:for-each select="//see | //listing | //do">
+            <xsl:call-template name="listbox-entry">
+                <xsl:with-param name="firstListing" select="$firstListing"/>
+                <xsl:with-param name="lastListing" select="$lastListing"/>
+            </xsl:call-template>
+        </xsl:for-each>
+        
+        <xsl:for-each select="//buy">
+            <xsl:call-template name="listbox-entry">
+                <xsl:with-param name="firstListing" select="$firstListing"/>
+                <xsl:with-param name="lastListing" select="$lastListing"/>
+            </xsl:call-template>
+        </xsl:for-each>
+        
+        <xsl:for-each select="//eat">
+            <xsl:call-template name="listbox-entry">
+                <xsl:with-param name="firstListing" select="$firstListing"/>
+                <xsl:with-param name="lastListing" select="$lastListing"/>
+            </xsl:call-template>
+        </xsl:for-each>
+        
+        <xsl:for-each select="//drink">
+            <xsl:call-template name="listbox-entry">
+                <xsl:with-param name="firstListing" select="$firstListing"/>
+                <xsl:with-param name="lastListing" select="$lastListing"/>
+            </xsl:call-template>
+        </xsl:for-each>
+    
+        <xsl:for-each select="//sleep">
+            <xsl:call-template name="listbox-entry">
+                <xsl:with-param name="firstListing" select="$firstListing"/>
+                <xsl:with-param name="lastListing" select="$lastListing"/>
+            </xsl:call-template>
+        </xsl:for-each>
+    </xsl:template>
+    
+    <xsl:template name="listbox-entry">
+        <xsl:param name="firstListing"/>
+        <xsl:param name="lastListing"/>
+        <xsl:variable name="buyPos" select="count( //see | //listing | //do )"/>
+        <xsl:variable name="eatPos" select="count( //see | //listing | //do | //buy )"/>
+        <xsl:variable name="drinkPos" select="count( //see | //listing | //do | //buy | //eat )"/>
+        <xsl:variable name="sleepPos" select="count( //see | //listing | //do | //buy | //eat | //drink )"/>
+        <xsl:variable name="endPos" select="count( //see | //listing | //do | //buy | //eat | //drink | //sleep )"/>
+
         <xsl:variable name="headingClass">
             <xsl:choose>
                 <xsl:when test="$dataWidth = 173">section-heading-small</xsl:when>
                 <xsl:otherwise>section-heading</xsl:otherwise>
             </xsl:choose>
         </xsl:variable>
-        <xsl:variable name="buyPos" select="count( //see | //listing | //do )"/>
-        <xsl:variable name="eatPos" select="count( //see | //listing | //do | //buy )"/>
-        <xsl:variable name="drinkPos" select="count( //see | //listing | //do | //buy | //eat )"/>
-        <xsl:variable name="sleepPos" select="count( //see | //listing | //do | //buy | //eat | //drink )"/>
-        <xsl:variable name="endPos" select="count( //see | //listing | //do | //buy | //eat | //drink | //sleep )"/>
-        <xsl:for-each select="//see | //listing | //do | //buy | //eat | //drink | //sleep">
+
             <xsl:if test="position() &gt;= $firstListing and position() &lt;= $lastListing">
                 <xsl:choose>
                     <xsl:when test="position() = $sleepPos + 1">
@@ -624,7 +667,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                     <xsl:value-of select="@name"/>
                 </svg:flowPara>
             </xsl:if>
-        </xsl:for-each>
     </xsl:template>
 
     <xsl:template name="countHeaders">
