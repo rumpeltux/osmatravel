@@ -33,7 +33,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:param name="zoomFactor" required="no" select="0.75"/>
     <xsl:param name="attenuationFactor" required="no" select="7"/>
 
-    <xsl:include href="variables.xsl"/>
+    <xsl:include href="vars.xsl"/>
+    <xsl:variable name="reldata" select="document('relation.xml')"/>
 
     <xsl:template name="adjustZoom">
         <xsl:param name="value"/>
@@ -54,9 +55,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
        bottomLeftLongitude: <xsl:value-of select="$bottomLeftLongitude"/>
          topRightLongitude: <xsl:value-of select="$topRightLongitude"/>
 
-      horizontalCropOffset: <xsl:value-of select="$horizontalCropOffset"/>
-        verticalCropOffset: <xsl:value-of select="$verticalCropOffset"/>
-
                  dataWidth: <xsl:value-of select="$dataWidth"/>
                 dataHeight: <xsl:value-of select="$dataHeight"/>
 
@@ -68,8 +66,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                      projection: <xsl:value-of select="$projection"/>
 
                      ratio: <xsl:value-of select="$ratio"/>
-            relation-ratio: <xsl:value-of select="$relation-ratio"/>
-
+                     
                 leftOffset: <xsl:value-of select="$leftOffset"/>
               bottomOffset: <xsl:value-of select="$bottomOffset"/>
 
@@ -82,8 +79,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
             xmlns:svg="http://www.w3.org/2000/svg"
             svgBaseProfile="full"
             data="data.osm"
-            minimumMapWidth="1"
-            minimumMapHeight="1"
+            minimumMapWidth="0"
+            minimumMapHeight="0"
             withOSMLayers="yes"
             withUntaggedSegments="no"
             showScale="no"
@@ -102,7 +99,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 <xsl:value-of select="$dataurl"/>
             </xsl:attribute>
             <xsl:attribute name="symbolScale">
-                <xsl:value-of select="$symbolScale"/>
+                <xsl:value-of select="1.2"/>
             </xsl:attribute>
             <xsl:attribute name="leftOffset">
                 <xsl:value-of select="$leftOffset"/>

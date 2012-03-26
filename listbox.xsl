@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+﻿<?xml version="1.0"?>
 <!--
 Copyright (C) 2008 Mark Jaroski
 
@@ -25,82 +25,41 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
        xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
        xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
        xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-       xmlns:svg="http://www.w3.org/2000/svg" >
+       xmlns:svg="http://www.w3.org/2000/svg"
+       xmlns:exsl="http://exslt.org/common"
+       xmlns:var="variable">
     <xsl:output omit-xml-declaration="no" indent="yes"/>
     <xsl:param name="rulesfile"/>
-    <xsl:param name="orientation"/>
-    <xsl:param name="size"/>
-    <xsl:param name="listingsPlacement"/>
-    <xsl:param name="boxWidth"/>
-    <xsl:param name="box1X"/>
-    <xsl:param name="box1Y"/>
-    <xsl:param name="box1Height"/>
-    <xsl:param name="box2X"/>
-    <xsl:param name="box2Y"/>
-    <xsl:param name="box2Height"/>
-    <xsl:param name="box3X"/>
-    <xsl:param name="box3Y"/>
-    <xsl:param name="box3Height"/>
-    <xsl:param name="box4X"/>
-    <xsl:param name="box4Y"/>
-    <xsl:param name="box4Height"/>
+
+    <xsl:include href="vars.xsl"/>
 
     <xsl:variable name="withmap">yes</xsl:variable>
 
-    <xsl:variable name="leftOffset" select="document($rulesfile)/rules/@leftOffset"/>
-    <xsl:variable name="bottomOffset" select="document($rulesfile)/rules/@bottomOffset"/>
-    <xsl:variable name="projection" select="document($rulesfile)/rules/@projection"/>
-    <xsl:variable name="dataWidth" select="document($rulesfile)/rules/@dataWidth"/>
-    <xsl:variable name="dataHeight" select="document($rulesfile)/rules/@dataHeight - 20"/>
-
-    <xsl:variable name="pixelLineHeight">
-        <xsl:choose>
-            <xsl:when test="$dataWidth = 173">0.18</xsl:when>
-            <xsl:otherwise>0.19</xsl:otherwise>
-        </xsl:choose>
-    </xsl:variable>
-
-    <xsl:variable name="boxLocation">
-        <xsl:choose>
-            <xsl:when test="$listingsPlacement = 'manual'">specified</xsl:when>
-            <xsl:when test="$leftOffset &gt;= $bottomOffset">left</xsl:when>
-            <xsl:otherwise>bottom</xsl:otherwise>
-        </xsl:choose>
-    </xsl:variable>
-
     <xsl:variable name="map" select="document('map.svg')"/>
     <xsl:variable name="overlay" select="document('overlay.svg')"/>
-    <xsl:variable name="unmatched" select="document('unmatched.svg')"/>
+    <xsl:variable name="unmatched"></xsl:variable><!--document('unmatched.svg')"/-->
 
-    <xsl:template match="/">
+    <!-- we need to have them grouped and not in random order -->    
+    <xsl:variable name="_sorted_listings">
+            <xsl:copy-of select="//see | //listing | //do" />
+            <xsl:copy-of select="//buy" />
+            <xsl:copy-of select="//eat" />
+            <xsl:copy-of select="//drink" />
+            <xsl:copy-of select="//sleep" />
+    </xsl:variable>
+    
+    <xsl:variable name="sorted_listings" select="exsl:node-set($_sorted_listings)/*" />
+
+    <xsl:template match="/">        
         <svg:svg>
             <xsl:copy-of select="$map/svg:svg/@*"/>
-            <xsl:if test="$size = 'two-page'">
-                <sodipodi:namedview showguides="true" showgrid="false">
-                    <xsl:choose>
-                        <xsl:when test="$orientation = 'landscape'">
-                            <sodipodi:guide orientation="1,0" position="173"/>
-                        </xsl:when>
-                        <xsl:when test="$orientation = 'portrait'">
-                            <sodipodi:guide orientation="0,1" position="173"/>
-                        </xsl:when>
-                    </xsl:choose>
-                </sodipodi:namedview>
-            </xsl:if>
             <xsl:if test="$withmap = 'yes'">
                 <xsl:copy-of select="$map/svg:svg/*"/>
             </xsl:if>
-            <xsl:choose>
-                <xsl:when test="$boxLocation = 'specified'">
-                    <xsl:call-template name="specifiedListingsBoxes"/>
-                </xsl:when>
-                <xsl:when test="$boxLocation = 'left'">
-                    <xsl:call-template name="verticalListingsBox"/>
-                </xsl:when>
-                <xsl:when test="$boxLocation = 'bottom'">
-                    <xsl:call-template name="horizontalListingsBox"/>
-                </xsl:when>
-            </xsl:choose>
+            
+            <!-- the main action :) -->
+            <xsl:call-template name="specifiedListingsBoxes"/>
+            
             <xsl:if test="$overlay">
                 <xsl:copy-of select="$overlay/svg:svg/*"/>
             </xsl:if>
@@ -118,287 +77,55 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 <xsl:call-template name="defs"/>
             </svg:defs>
 
-            <xsl:variable name="box1Ypos" select="$dataHeight - $box1Y - $box1Height"/>
-            <xsl:variable name="box1Lines" select="$box1Height * $pixelLineHeight"/>
-            <xsl:variable name="box1LastListing">
-                <xsl:call-template name="countListings">
-                    <xsl:with-param name="lines" select="$box1Lines"/>
-                    <xsl:with-param name="lineCount" select="0"/>
-                    <xsl:with-param name="currentListing" select="1"/>
-                </xsl:call-template>
-            </xsl:variable>
-
-            <!-- Box 1 -->
-            <svg:rect class="listings-box">
-                <xsl:attribute name="x">
-                    <xsl:value-of select="$box1X"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="y">
-                    <xsl:value-of select="$box1Ypos"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="height">
-                    <xsl:value-of select="$box1Height"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="width">
-                    <xsl:value-of select="$boxWidth"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-            </svg:rect>
-
-            <xsl:call-template name="listingsFlowRoot">
-                <xsl:with-param name="numBoxes" select="1"/>
-                <xsl:with-param name="x" select="$box1X + 2"/>
-                <xsl:with-param name="y" select="$box1Ypos + 2"/>
-                <xsl:with-param name="height" select="$box1Height"/>
-                <xsl:with-param name="width" select="$boxWidth - 4"/>
-                <xsl:with-param name="lines" select="$box1Lines"/>
-                <xsl:with-param name="firstListing" select="1"/>
+            <xsl:call-template name="make-listing-box">
+                <xsl:with-param name="box_number" select="1" />
             </xsl:call-template>
-
-            <xsl:variable name="box2Ypos" select="$dataHeight - $box2Y - $box2Height"/>
-            <xsl:variable name="box2Lines" select="$box2Height * $pixelLineHeight"/>
-            <xsl:variable name="box2LastListing">
-                <xsl:call-template name="countListings">
-                    <xsl:with-param name="lines" select="$box2Lines"/>
-                    <xsl:with-param name="lineCount" select="0"/>
-                    <xsl:with-param name="currentListing" select="$box1LastListing + 1"/>
-                </xsl:call-template>
-            </xsl:variable>
-
-            <!-- Box 2 -->
-            <svg:rect class="listings-box">
-                <xsl:attribute name="x">
-                    <xsl:value-of select="$box2X"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="y">
-                    <xsl:value-of select="$box2Ypos"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="height">
-                    <xsl:value-of select="$box2Height"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="width">
-                    <xsl:value-of select="$boxWidth"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-            </svg:rect>
-
-            <xsl:call-template name="listingsFlowRoot">
-                <xsl:with-param name="numBoxes" select="1"/>
-                <xsl:with-param name="x" select="$box2X + 2"/>
-                <xsl:with-param name="y" select="$box2Ypos + 2"/>
-                <xsl:with-param name="height" select="$box2Height"/>
-                <xsl:with-param name="width" select="$boxWidth - 4"/>
-                <xsl:with-param name="lines" select="$box2Lines"/>
-                <xsl:with-param name="firstListing" select="$box1LastListing + 1"/>
+            <xsl:call-template name="make-listing-box">
+                <xsl:with-param name="box_number" select="2" />
             </xsl:call-template>
-
-            <xsl:variable name="box3Ypos" select="$dataHeight - $box3Y - $box3Height"/>
-            <xsl:variable name="box3Lines" select="$box3Height * $pixelLineHeight"/>
-            <xsl:variable name="box3LastListing">
-                <xsl:call-template name="countListings">
-                    <xsl:with-param name="lines" select="$box3Lines"/>
-                    <xsl:with-param name="lineCount" select="0"/>
-                    <xsl:with-param name="currentListing" select="$box2LastListing + 1"/>
-                </xsl:call-template>
-            </xsl:variable>
-
-            <!-- Box 3 -->
-            <svg:rect class="listings-box">
-                <xsl:attribute name="x">
-                    <xsl:value-of select="$box3X"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="y">
-                    <xsl:value-of select="$box3Ypos"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="height">
-                    <xsl:value-of select="$box3Height"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="width">
-                    <xsl:value-of select="$boxWidth"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-            </svg:rect>
-
-            <xsl:call-template name="listingsFlowRoot">
-                <xsl:with-param name="numBoxes" select="1"/>
-                <xsl:with-param name="x" select="$box3X + 2"/>
-                <xsl:with-param name="y" select="$box3Ypos + 2"/>
-                <xsl:with-param name="height" select="$box3Height"/>
-                <xsl:with-param name="width" select="$boxWidth - 4"/>
-                <xsl:with-param name="lines" select="$box3Lines"/>
-                <xsl:with-param name="firstListing" select="$box2LastListing + 1"/>
+            <xsl:call-template name="make-listing-box">
+                <xsl:with-param name="box_number" select="3" />
             </xsl:call-template>
-
-            <xsl:variable name="box4Ypos" select="$dataHeight - $box4Y - $box4Height"/>
-            <xsl:variable name="box4Lines" select="$box4Height * $pixelLineHeight"/>
-
-            <!-- Box 4 -->
-            <svg:rect class="listings-box">
-                <xsl:attribute name="x">
-                    <xsl:value-of select="$box4X"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="y">
-                    <xsl:value-of select="$box4Ypos"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="height">
-                    <xsl:value-of select="$box4Height"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="width">
-                    <xsl:value-of select="$boxWidth"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-            </svg:rect>
-
-            <svg:g>
-                <xsl:attribute name="transform">
-                    <xsl:text>translate(</xsl:text>
-                    <xsl:value-of select="$box4X + ( $boxWidth - 40 ) div 2"/>
-                    <xsl:text>,</xsl:text>
-                    <xsl:value-of select="$box4Ypos + $box4Height - 56"/>
-                    <xsl:text>)</xsl:text>
-                </xsl:attribute>
-                <svg:use xlink:href="#wikitravel-logo" transform="scale(0.08)" />
-            </svg:g>
-
-            <svg:flowRoot>
-                <svg:flowRegion>
-                    <svg:rect>
-                        <xsl:attribute name="y"> 
-                            <xsl:value-of select="$box4Ypos + $box4Height - 10"/>
-                            <xsl:text>px</xsl:text>
-                        </xsl:attribute>
-                        <xsl:attribute name="x">
-                            <xsl:value-of select="$box4X"/>
-                            <xsl:text>px</xsl:text>
-                        </xsl:attribute>
-                        <xsl:attribute name="height">
-                            <xsl:value-of select="8"/>
-                            <xsl:text>px</xsl:text>
-                        </xsl:attribute>
-                        <xsl:attribute name="width">
-                            <xsl:value-of select="$boxWidth"/>
-                            <xsl:text>px</xsl:text>
-                        </xsl:attribute>
-                    </svg:rect>
-                </svg:flowRegion>
-                <svg:text class="osm-credit-text">
-                    <xsl:text>Data: OpenStreetMap CC-by-sa 2.0</xsl:text>
-                </svg:text>
-            </svg:flowRoot>
+            <xsl:call-template name="make-listing-box">
+                <xsl:with-param name="box_number" select="4" />
+            </xsl:call-template>
         </svg:g>
-
     </xsl:template>
-
-    <xsl:template name="horizontalListingsBox">
-
-        <xsl:variable name="height" select="$bottomOffset * $projection - 2"/>
-        <xsl:variable name="width" select="$dataWidth"/>
-        <xsl:variable name="lines" select="$height * $pixelLineHeight"/>
-        <xsl:variable name="y" select="$dataHeight - $height + 1"/>
-
-        <!-- draw the listings box -->
-        <svg:g inkscape:groupmode="layer" inkscape:label="Listings Box" class="listings-box" transform="translate(0,0)">
-
-            <svg:defs id="defs-rulefile">
-                <xsl:call-template name="defs"/>
-            </svg:defs>
-
-            <xsl:message>
-               dataHeight: <xsl:value-of select="$dataHeight"/>
-                    width: <xsl:value-of select="$width"/>
-                width - 4: <xsl:value-of select="$width - 4"/>
-                   height: <xsl:value-of select="$height"/>
-                    lines: <xsl:value-of select="$lines"/>
-            </xsl:message>
-
-            <svg:rect class="listings-box" x="10px" >
+    
+    <xsl:template name="make-listing-box">
+        <xsl:param name="box_number" />
+        <xsl:variable name="xpos" select="$x + $boxWidth * ( $box_number - 1 )" />
+        
+        <xsl:if test="$boxes[$box_number] &gt; 0">
+            <svg:rect class="listings-box">
+                <xsl:attribute name="x">
+                    <xsl:value-of select="$xpos"/>
+                    <xsl:text>px</xsl:text>
+                </xsl:attribute>
                 <xsl:attribute name="y">
                     <xsl:value-of select="$y"/>
                     <xsl:text>px</xsl:text>
                 </xsl:attribute>
                 <xsl:attribute name="height">
-                    <xsl:value-of select="$height - 10"/>
+                    <xsl:value-of select="$height"/>
                     <xsl:text>px</xsl:text>
                 </xsl:attribute>
                 <xsl:attribute name="width">
-                    <xsl:value-of select="$width - 20"/>
+                    <xsl:value-of select="$boxWidth - $box_border"/>
                     <xsl:text>px</xsl:text>
                 </xsl:attribute>
             </svg:rect>
 
-            <xsl:variable name="numBoxes">
-                <xsl:choose>
-                    <xsl:when test="$dataWidth = 173">
-                        <xsl:value-of select="3"/>
-                    </xsl:when>
-                    <xsl:otherwise>
-                        <xsl:value-of select="4"/>
-                    </xsl:otherwise>
-                </xsl:choose>
-            </xsl:variable>
-
-            <xsl:variable name="textSpacing" select="2"/>
-
             <xsl:call-template name="listingsFlowRoot">
-                <xsl:with-param name="numBoxes" select="$numBoxes"/>
+                <xsl:with-param name="numBoxes" select="1"/>
+                <xsl:with-param name="x" select="$xpos + 2"/>
                 <xsl:with-param name="y" select="$y + 2"/>
-                <xsl:with-param name="height" select="$height"/>
-                <xsl:with-param name="width" select="$width"/>
-                <xsl:with-param name="lines" select="$lines"/>
-                <xsl:with-param name="firstListing" select="1"/>
+                <xsl:with-param name="height" select="$height - 4"/>
+                <xsl:with-param name="width" select="$boxWidth - $box_border"/>
+                <xsl:with-param name="lines" select="$boxes[$box_number]"/>
+                <xsl:with-param name="firstListing" select="$listing_start[$box_number]"/>
             </xsl:call-template>
-
-            <svg:g>
-                <xsl:attribute name="transform">
-                    <xsl:text>translate(</xsl:text>
-                    <xsl:value-of select="( $numBoxes - 1 ) * ( ( $width ) div $numBoxes ) - 3"/>
-                    <xsl:text>,</xsl:text>
-                    <xsl:value-of select="$dataHeight - $dataHeight * 0.21"/>
-                    <xsl:text>)</xsl:text>
-                </xsl:attribute>
-                <svg:use xlink:href="#wikitravel-logo" transform="scale(0.08)" />
-            </svg:g>
-
-            <svg:flowRoot>
-                <svg:flowRegion>
-                    <svg:rect>
-                        <xsl:attribute name="y"> 
-                            <xsl:value-of select="$dataHeight - 18"/>
-                            <xsl:text>px</xsl:text>
-                        </xsl:attribute>
-                        <xsl:attribute name="x">
-                            <xsl:value-of select="( $numBoxes - 1 ) * ( ( $width - 4 ) div $numBoxes )"/>
-                            <xsl:text>px</xsl:text>
-                        </xsl:attribute>
-                        <xsl:attribute name="height">
-                            <xsl:value-of select="8"/>
-                            <xsl:text>px</xsl:text>
-                        </xsl:attribute>
-                        <xsl:attribute name="width">
-                            <xsl:value-of select="$width div $numBoxes - 4"/>
-                            <xsl:text>px</xsl:text>
-                        </xsl:attribute>
-                    </svg:rect>
-                </svg:flowRegion>
-                <svg:text class="osm-credit-text">
-                    <xsl:text>Data: OpenStreetMap CC-by-sa 2.0</xsl:text>
-                </svg:text>
-            </svg:flowRoot>
-
-        </svg:g>
-
+        </xsl:if>
     </xsl:template>
 
     <xsl:template name="listingsFlowRoot">
@@ -421,13 +148,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 numBoxes: <xsl:value-of select="$numBoxes"/>
               recursions: <xsl:value-of select="$recursions"/>
         </xsl:message>
-        <xsl:variable name="lastListing">
-            <xsl:call-template name="countListings">
-                <xsl:with-param name="lines" select="$lines"/>
-                <xsl:with-param name="lineCount" select="0"/>
-                <xsl:with-param name="currentListing" select="$firstListing"/>
-            </xsl:call-template>
-        </xsl:variable>
+        <xsl:variable name="lastListing" select="$firstListing + $lines - 1"/>
         <svg:flowRoot>
             <svg:flowRegion>
                 <svg:rect>
@@ -440,7 +161,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                         <xsl:text>px</xsl:text>
                     </xsl:attribute>
                     <xsl:attribute name="height">
-                        <xsl:value-of select="$height - 8"/>
+                        <xsl:value-of select="$height"/>
                         <xsl:text>px</xsl:text>
                     </xsl:attribute>
                     <xsl:attribute name="width">
@@ -484,7 +205,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         <xsl:param name="lineCount"/>
         <xsl:param name="currentListing"/>
 
-        <xsl:variable name="allListings" select="//see | //listing | //do | //buy | //eat | //drink | //sleep"/>
         <!--xsl:message>
                   lineCount: <xsl:value-of select="$lineCount"/>
              currentListing: <xsl:value-of select="$currentListing"/>
@@ -515,7 +235,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 </xsl:variable>
                 <xsl:variable name="nextListing">
                     <xsl:choose>
-                        <xsl:when test="$currentListing > count($allListings)">
+                        <xsl:when test="$currentListing > count($sorted_listings)">
                             <xsl:value-of select="$currentListing"/>
                         </xsl:when>
                         <xsl:otherwise>
@@ -547,39 +267,49 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
               firstListing: <xsl:value-of select="$firstListing"/>
                lastListing: <xsl:value-of select="$lastListing"/>
         </xsl:message>
-        
+                
         <xsl:for-each select="//see | //listing | //do">
             <xsl:call-template name="listbox-entry">
+                <xsl:with-param name="offset" select="0" />
                 <xsl:with-param name="firstListing" select="$firstListing"/>
                 <xsl:with-param name="lastListing" select="$lastListing"/>
+                <xsl:with-param name="title">See and Do</xsl:with-param>
             </xsl:call-template>
         </xsl:for-each>
         
         <xsl:for-each select="//buy">
             <xsl:call-template name="listbox-entry">
+                <xsl:with-param name="offset" select="count(//see | //listing | //do)" />
                 <xsl:with-param name="firstListing" select="$firstListing"/>
                 <xsl:with-param name="lastListing" select="$lastListing"/>
+                <xsl:with-param name="title">Buy</xsl:with-param>
             </xsl:call-template>
         </xsl:for-each>
         
         <xsl:for-each select="//eat">
             <xsl:call-template name="listbox-entry">
+                <xsl:with-param name="offset" select="count(//see | //listing | //do | //buy)" />
                 <xsl:with-param name="firstListing" select="$firstListing"/>
                 <xsl:with-param name="lastListing" select="$lastListing"/>
+                <xsl:with-param name="title">Eat</xsl:with-param>
             </xsl:call-template>
         </xsl:for-each>
         
         <xsl:for-each select="//drink">
             <xsl:call-template name="listbox-entry">
+                <xsl:with-param name="offset" select="count(//see | //listing | //do | //buy | //eat)" />
                 <xsl:with-param name="firstListing" select="$firstListing"/>
                 <xsl:with-param name="lastListing" select="$lastListing"/>
+                <xsl:with-param name="title">Drink</xsl:with-param>
             </xsl:call-template>
         </xsl:for-each>
     
         <xsl:for-each select="//sleep">
             <xsl:call-template name="listbox-entry">
+                <xsl:with-param name="offset" select="count(//see | //listing | //do | //buy | //eat | //drink)" />
                 <xsl:with-param name="firstListing" select="$firstListing"/>
                 <xsl:with-param name="lastListing" select="$lastListing"/>
+                <xsl:with-param name="title">Sleep</xsl:with-param>
             </xsl:call-template>
         </xsl:for-each>
     </xsl:template>
@@ -587,11 +317,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     <xsl:template name="listbox-entry">
         <xsl:param name="firstListing"/>
         <xsl:param name="lastListing"/>
-        <xsl:variable name="buyPos" select="count( //see | //listing | //do )"/>
-        <xsl:variable name="eatPos" select="count( //see | //listing | //do | //buy )"/>
-        <xsl:variable name="drinkPos" select="count( //see | //listing | //do | //buy | //eat )"/>
-        <xsl:variable name="sleepPos" select="count( //see | //listing | //do | //buy | //eat | //drink )"/>
-        <xsl:variable name="endPos" select="count( //see | //listing | //do | //buy | //eat | //drink | //sleep )"/>
+        <xsl:param name="title"/>
+        <xsl:param name="offset"/>
 
         <xsl:variable name="headingClass">
             <xsl:choose>
@@ -600,58 +327,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
             </xsl:choose>
         </xsl:variable>
 
-            <xsl:if test="position() &gt;= $firstListing and position() &lt;= $lastListing">
-                <xsl:choose>
-                    <xsl:when test="position() = $sleepPos + 1">
+            <xsl:if test="position() + $offset &gt;= $firstListing and position() + $offset &lt;= $lastListing">
+                <xsl:variable name="lineNumber" select="position()" />
+                <xsl:if test="position() = 1">
                         <xsl:call-template name="heading">
-                            <xsl:with-param name="title">Sleep</xsl:with-param>
+                            <xsl:with-param name="title" select="$title" />
                             <xsl:with-param name="class" select="$headingClass"/>
                         </xsl:call-template>
-                    </xsl:when>
-                    <xsl:when test="position() = $drinkPos + 1">
-                        <xsl:call-template name="heading">
-                            <xsl:with-param name="title">Drink</xsl:with-param>
-                            <xsl:with-param name="class" select="$headingClass"/>
-                        </xsl:call-template>
-                    </xsl:when>
-                    <xsl:when test="position() = $eatPos + 1">
-                        <xsl:call-template name="heading">
-                            <xsl:with-param name="title">Eat</xsl:with-param>
-                            <xsl:with-param name="class" select="$headingClass"/>
-                        </xsl:call-template>
-                    </xsl:when>
-                    <xsl:when test="position() = $buyPos + 1">
-                        <xsl:call-template name="heading">
-                            <xsl:with-param name="title">Buy</xsl:with-param>
-                            <xsl:with-param name="class" select="$headingClass"/>
-                        </xsl:call-template>
-                    </xsl:when>
-                    <xsl:when test="position() = 1">
-                        <xsl:call-template name="heading">
-                            <xsl:with-param name="title">See and Do</xsl:with-param>
-                            <xsl:with-param name="class" select="$headingClass"/>
-                        </xsl:call-template>
-                    </xsl:when>
-                </xsl:choose>
-                <xsl:variable name="lineNumber">
-                    <xsl:choose>
-                        <xsl:when test="position() &gt; $buyPos and position() &lt;= $eatPos">
-                            <xsl:value-of select="position() - $buyPos"/>
-                        </xsl:when>
-                        <xsl:when test="position() &gt; $eatPos and position() &lt;= $drinkPos">
-                            <xsl:value-of select="position() - $eatPos "/>
-                        </xsl:when>
-                        <xsl:when test="position() &gt; $drinkPos and position() &lt;= $sleepPos">
-                            <xsl:value-of select="position() - $drinkPos"/>
-                        </xsl:when>
-                        <xsl:when test="position() &gt; $sleepPos">
-                            <xsl:value-of select="position() - $sleepPos"/>
-                        </xsl:when>
-                        <xsl:otherwise>
-                            <xsl:value-of select="position()"/>
-                        </xsl:otherwise>
-                    </xsl:choose>
-                </xsl:variable>
+                </xsl:if>
+
                 <xsl:variable name="listingClass">
                     <xsl:choose>
                         <xsl:when test="$dataWidth = 173">listing-small</xsl:when>
@@ -663,7 +347,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                         <xsl:value-of select="$listingClass"/>
                     </xsl:attribute>
                     <xsl:value-of select="$lineNumber"/>
-                    <svg:text>. </svg:text>
+                    <xsl:text>. </xsl:text>
                     <xsl:value-of select="@name"/>
                 </svg:flowPara>
             </xsl:if>
@@ -711,14 +395,14 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         <xsl:param name="lastListing"/>
         <xsl:param name="x" required="yes" select="4"/>
         <xsl:param name="y" required="yes" select="4"/>
-        <xsl:variable name="xStart" select="$x * 1.112 - 1.3"/>
-        <xsl:variable name="yStart" select="$y * 1.112 - 9.2"/>
+        <xsl:variable name="xStart" select="$x * 1.112 - 0.7"/>
+        <xsl:variable name="yStart" select="$y * 1.112 - 9.7"/>
         <xsl:variable name="buyPos" select="count( //see | //listing | //do )"/>
         <xsl:variable name="eatPos" select="count( //see | //listing | //do | //buy )"/>
         <xsl:variable name="drinkPos" select="count( //see | //listing | //do | //buy | //eat )"/>
         <xsl:variable name="sleepPos" select="count( //see | //listing | //do | //buy | //eat | //drink )"/>
         <xsl:variable name="endPos" select="count( //see | //listing | //do | //buy | //eat | //drink | //sleep )"/>
-        <xsl:for-each select="//see | //listing | //do | //buy | //eat | //drink | //sleep">
+        <xsl:for-each select="$sorted_listings">
             <xsl:variable name="headerCount">
                 <xsl:call-template name="countHeaders">
                     <xsl:with-param name="current" select="$firstListing"/>
@@ -783,15 +467,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         <xsl:param name="y"/>
         <xsl:param name="line"/>
         <xsl:param name="numHeaders" required="yes" select="0"/>
-        <xsl:variable name="iconLineHeight" select="4.72"/>
-        <xsl:variable name="headerLineHeight" select="6.8"/>
+        <xsl:variable name="iconLineHeight" select="4.25 * 1.111"/>
+        <xsl:variable name="headerLineHeight" select="6 * 1.02 * 1.111"/>
         <xsl:variable name="ypos" select="$y + $numHeaders * $headerLineHeight + $line * $iconLineHeight"/>
         <xsl:message>
             icon: <xsl:value-of select="$section"/>
             line: <xsl:value-of select="$line"/>
       numHeaders: <xsl:value-of select="$numHeaders"/>
-               x: <xsl:value-of select="$x"/>
-               y: <xsl:value-of select="$ypos"/>
+               x: <xsl:value-of select="$x * 0.9"/>
+               y: <xsl:value-of select="$ypos * 0.9"/>
         </xsl:message>
         <svg:g>
             <svg:use transform="scale(0.9)">
@@ -811,155 +495,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         </svg:g>
     </xsl:template>
 
-    <xsl:template name="verticalListingsBox">
-
-        <xsl:variable name="height" select="$dataHeight"/>
-        <xsl:variable name="width" select="$leftOffset"/>
-
-        <!-- calculate placement of the logo -->
-        <xsl:variable name="logo-placement-modifier">0.2</xsl:variable>
-        <xsl:variable name="logo-height">5</xsl:variable>
-        <xsl:variable name="logo-placement">
-            <xsl:value-of select="$height * $logo-placement-modifier - $logo-height"/>
-        </xsl:variable>
-
-        <!-- draw the listings box -->
-        <svg:g inkscape:groupmode="layer" inkscape:label="Listings Box" class="listings-box" transform="translate(0,0)">
-
-            <svg:defs id="defs-rulefile">
-                <xsl:call-template name="defs"/>
-            </svg:defs>
-
-            <svg:rect class="listings-box" x="10px" y="10px" >
-                <xsl:attribute name="height">
-                    <xsl:value-of select="$height - 20"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-                <xsl:attribute name="width">
-                    <xsl:value-of select="$width"/>
-                    <xsl:text>px</xsl:text>
-                </xsl:attribute>
-            </svg:rect>
-
-            <svg:flowRoot id="flowRoot3148">
-
-                <svg:flowRegion id="flowRegion3150">
-                    <svg:rect id="rect3152" x="12px" y="10px">
-                        <xsl:attribute name="height">
-                            <xsl:value-of select="$height - 20"/>
-                            <xsl:text>px</xsl:text>
-                        </xsl:attribute>
-                        <xsl:attribute name="width">
-                            <xsl:value-of select="$width"/>
-                            <xsl:text>px</xsl:text>
-                        </xsl:attribute>
-                    </svg:rect>
-                </svg:flowRegion>
-
-                <xsl:if test="count( /listings/see | /listings/do | /listings/listing ) &gt; 0">
-                    <xsl:call-template name="heading">
-                        <xsl:with-param name="title">See and Do</xsl:with-param>
-                        <xsl:with-param name="class">section-heading</xsl:with-param>
-                    </xsl:call-template>
-                </xsl:if>
-
-                <xsl:call-template name="listingsSet">
-                    <xsl:with-param name="listings" select="/listings/see | /listings/do | /listings/listing"/>
-                </xsl:call-template>
-
-                <xsl:if test="count( /listing/buy ) &gt; 0">
-                    <xsl:call-template name="heading">
-                        <xsl:with-param name="title">Buy</xsl:with-param>
-                        <xsl:with-param name="class">section-heading</xsl:with-param>
-                    </xsl:call-template>
-                </xsl:if>
-
-    
-                <xsl:call-template name="listingsSet">
-                    <xsl:with-param name="listings" select="/listings/buy"/>
-                </xsl:call-template>
-
-                <xsl:if test="count( /listings/eat ) &gt; 0">
-                    <xsl:call-template name="heading">
-                        <xsl:with-param name="title">Eat</xsl:with-param>
-                        <xsl:with-param name="class">section-heading</xsl:with-param>
-                    </xsl:call-template>
-                </xsl:if>
-
-                <xsl:call-template name="listingsSet">
-                    <xsl:with-param name="listings" select="/listings/eat"/>
-                </xsl:call-template>
-
-                <xsl:if test="count( /listings/drink ) &gt; 0">
-                    <xsl:call-template name="heading">
-                        <xsl:with-param name="title">Drink</xsl:with-param>
-                        <xsl:with-param name="class">section-heading</xsl:with-param>
-                    </xsl:call-template>
-                </xsl:if>
-
-                <xsl:call-template name="listingsSet">
-                    <xsl:with-param name="listings" select="/listings/drink"/>
-                </xsl:call-template>
-
-                <xsl:if test="count( /listings/sleep ) &gt; 0">
-                    <xsl:call-template name="heading">
-                        <xsl:with-param name="title">Sleep</xsl:with-param>
-                        <xsl:with-param name="class">section-heading</xsl:with-param>
-                    </xsl:call-template>
-                </xsl:if>
-
-                <xsl:call-template name="listingsSet">
-                    <xsl:with-param name="listings" select="/listings/sleep"/>
-                </xsl:call-template>
-                
-
-            </svg:flowRoot> 
-
-            <xsl:call-template name="drawHeadingIcons">
-                <xsl:with-param name="lines" select="( $height - 4 ) * $pixelLineHeight"/>
-                <xsl:with-param name="firstListing" select="1"/>
-                <xsl:with-param name="lastListing" select="count( /listings/* )"/>
-                <xsl:with-param name="x" select="12"/>
-                <xsl:with-param name="y" select="10"/>
-            </xsl:call-template>
-
-            <svg:g>
-                <xsl:attribute name="transform">
-                    <xsl:text>translate(8,</xsl:text>
-                    <xsl:value-of select="$height - 75"/>
-                    <xsl:text>)</xsl:text>
-                </xsl:attribute>
-                <svg:use xlink:href="#wikitravel-logo" transform="scale(0.12)" />
-            </svg:g>
-
-            <svg:flowRoot>
-
-                <svg:flowRegion>
-                    <svg:rect>
-                        <xsl:attribute name="x">
-                            <xsl:value-of select="0"/>
-                        </xsl:attribute>
-                        <xsl:attribute name="y">
-                            <xsl:value-of select="$height - 8" />
-                        </xsl:attribute>
-                        <xsl:attribute name="height">
-                            <xsl:value-of select="10" />
-                        </xsl:attribute>
-                        <xsl:attribute name="width">
-                            <xsl:value-of select="$width" />
-                        </xsl:attribute>
-                    </svg:rect>
-                </svg:flowRegion>
-
-                <svg:text class="osm-credit-text">
-                    <xsl:text>Data: OpenStreetMap CC-by-sa 2.0</xsl:text>
-                </svg:text>
-
-            </svg:flowRoot>
-
-        </svg:g>
-    </xsl:template>
-
     <xsl:template name="heading">
         <xsl:param name="class"/>
         <xsl:param name="title"/>
@@ -967,7 +502,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
             <xsl:attribute name="class">
                 <xsl:value-of select="$class"/>
             </xsl:attribute>
-            <xsl:text>.    </xsl:text>
+            <xsl:text>   </xsl:text>
             <xsl:value-of select="$title"/>
         </svg:flowPara>
     </xsl:template>
@@ -977,7 +512,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         <xsl:for-each select="$listings">
             <svg:flowPara class="listing">
                 <xsl:value-of select="position()"/>
-                <xsl:text>. </xsl:text>
+                <xsl:text>. </xsl:text>
                 <xsl:value-of select="@name"/>
             </svg:flowPara>
          </xsl:for-each>
@@ -1141,6 +676,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 font-stretch: normal;
                 font-variant: normal;
                 font-size: 3.4px;
+                line-height: 4.25px;
                 text-anchor: start;
                 text-align: start;
                 writing-mode: lr;
@@ -1160,7 +696,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
             }
 
             .listings-box {
-                opacity: 1;
+                opacity: 0.7;
                 fill: #ffffff;
                 fill-opacity: 1;
                 fill-rule: nonzero;

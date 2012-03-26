@@ -74,7 +74,7 @@ all : map.svg ${SVGZ} unmatched.txt ${PNG} ${DING}
 
 
 # transform OSM data into an SVG
-map.svg : data.osm osmarender.xsl wikitravel-print-rules.xml 
+map.svg : final-data.osm osmarender.xsl wikitravel-print-rules.xml 
 	${XML} tr --net osmarender.xsl wikitravel-print-rules.xml > $@ 2> osmarender.log
 
 
@@ -162,7 +162,7 @@ svg_page.html : Config.mk
 
 
 # Build the rules file
-wikitravel-print-rules.xml : icon_rules.xsl variables.xsl listings.xml relation.xml style-*.xsl
+wikitravel-print-rules.xml : icon_rules.xsl vars.xsl listings.xml relation.xml style-*.xsl
 	${XML} tr icon_rules.xsl \
 		-s border="$(call getval,border)" \
 		-s listingsPlacement="$(call getval,listings_placement,auto)" \
@@ -183,7 +183,10 @@ overlay.svg : overlay_page.html
 
 # create a listings box layer, sandwiching it between the previously
 # generated map.svg and the downloaded or generated overlay.svg
-listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg overlay.svg unmatched.svg
+listings.svg : listbox.xsl listings.xml wikitravel-print-rules.xml map.svg overlay.svg unmatched.svg
+	${XML} tr listbox.xsl listings.xml > $@ 2> listbox.log 
+
+_listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg overlay.svg unmatched.svg
 	${XML} tr listings_box.xsl \
 		-s orientation="$(call getval,orientation,landscape)" \
 		-s size="$(call getval,size,two-page)" \
@@ -212,8 +215,8 @@ listings.png : listings.svg
 	# For some reason Make clobbers inkscape's memory footprint so background this
 	killall inkscape || /bin/true # sorry, one inkscape at a time
 	echo "cd ${PWD} && ${TRANSFORM}" | at now
-	sleep 15
-	while pidof inkscape ; do sleep 15 ; done
+	sleep 1
+	while pidof inkscape ; do sleep 1 ; done
 
 
 
@@ -247,7 +250,11 @@ namednodes.txt : data.osm
 	${XML} sel -T -t -m "//node/tag[@k='name:en']"  -v @v -n $< >> $@ || true
 	${XML} sel -T -t -m "//way/tag[@k='name:en']"  -v @v -n $< >> $@ || true
 
-
+vars.xsl: listings.xml data.osm calculation.py
+	python calculation.py ${DATAURL} `for i in //listing\|//see\|//do //buy //eat //drink //sleep; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
+	
+final-data.osm: vars.xsl
+	wget -O $@ `${XML} sel -t -v "//xsl:variable[@name='dataurl']/text()" vars.xsl`
 
 # find any listings which are not in the nodes list, and warn about them
 unmatched.txt : namednodes.txt listings.txt
