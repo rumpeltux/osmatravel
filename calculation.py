@@ -57,7 +57,7 @@ _coords = [bbox.x1 - leftOffset / (10000 * scale),
      bbox.y1 - bottomOffset / (10000 * scale),
      bbox.x2, bbox.y2]
 dataurl = "http://www.openstreetmap.org/api/0.6/map?bbox=" + ",".join(map(str,_coords))
-datafile = "%x.osm" % hash(dataurl)
+datafile = "%x.osm" % abs(hash(dataurl))
 
 # just for debugging:
 #new_bbox = Rect( (_coords[0], _coords[1]), (_coords[2], _coords[3]))

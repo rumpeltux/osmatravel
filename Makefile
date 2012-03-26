@@ -25,9 +25,7 @@ ifndef ARTICLE
 $(error You must set the variable ARTICLE, eg. make adjustments ARTICLE=Paris/6th_arrondissement)
 endif
 
-PAGE_WIDTH = 1730
-PAGE_HEIGHT = 3008
-BELL = yes
+BELL = no
 
 # Programs
 SHELL=/bin/bash
@@ -35,20 +33,24 @@ XML = xmlstarlet
 LISTFILTER = listfilter.sh
 INKSCAPE = /usr/bin/inkscape
 PYTHON = /usr/bin/python
-UPLOAD = /usr/local/share/pywikipedia/upload.py
+UPLOAD = pywikipedia/upload.py
 
 # Functions
 ################################################################################
 
 
-SIZE  = $(call getval,size,two-page)
-ORIENTATION = $(call getval,orientation,landscape)
+#SIZE  = $(call getval,size,two-page)
+#ORIENTATION = $(call getval,orientation,landscape)
 
-LONG  = $(if $(findstring two-page,$(SIZE)),$(shell echo $$((2 * ${PAGE_WIDTH}))),${PAGE_HEIGHT})
-SHORT =  $(if $(findstring two-page,$(SIZE)),${PAGE_HEIGHT},${PAGE_WIDTH})
+#LONG  = $(if $(findstring two-page,$(SIZE)),$(shell echo $$((2 * ${PAGE_WIDTH}))),${PAGE_HEIGHT})
+#SHORT =  $(if $(findstring two-page,$(SIZE)),${PAGE_HEIGHT},${PAGE_WIDTH})
 
-WIDTH = $(if $(findstring landscape,$(ORIENTATION)),$(LONG),$(SHORT))
-HEIGHT = $(if $(findstring landscape,$(ORIENTATION)),$(SHORT),$(LONG))
+#WIDTH = $(if $(findstring landscape,$(ORIENTATION)),$(LONG),$(SHORT))
+#HEIGHT = $(if $(findstring landscape,$(ORIENTATION)),$(SHORT),$(LONG))
+WIDTH = $(call getval,width,300.8)
+HEIGHT = $(call getval,height,173)
+PAGE_WIDTH = $(shell echo $$((10 * ${WIDTH})))
+PAGE_HEIGHT = $(shell echo $$((10 * ${HEIGHT})))
 
 PROVIDED_URL = $(call getval,osm_url,none)
 
@@ -74,7 +76,7 @@ all : map.svg ${SVGZ} unmatched.txt ${PNG} ${DING}
 
 
 # transform OSM data into an SVG
-map.svg : final-data.osm osmarender.xsl wikitravel-print-rules.xml 
+map.svg : data.osm osmarender.xsl wikitravel-print-rules.xml 
 	${XML} tr --net osmarender.xsl wikitravel-print-rules.xml > $@ 2> osmarender.log
 
 
@@ -102,9 +104,9 @@ space:= $(empty) $(empty)
 BORDER_VALUE = $(subst $(space),+,$(call getval,border))
 RELS = $(if $(and $(findstring none,$(call getval,relid,none)), $(findstring none,$(PROVIDED_URL))),wget -q -O - "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]",echo)
 rels.xml : article.wiki
-	$(if $(and $(findstring none,$(call getval,osm_url,none)),$(findstring none,$(call getval,border,none))),$(error You must configure either 'border' or 'osm_url' in the map image in your Wikitravel article.))
+	$(if $(and $(findstring none,$(call getval,osm_url,none)),$(findstring none,$(call getval,border,none))),$(error You must configure either 'relid', 'border' or 'osm_url' in the map image in your Wikitravel article.))
 	${RELS} > $@
-
+# TODO we need to fix extracting the URL
 
 
 # get the specific border relation for the covered area
@@ -133,19 +135,23 @@ listings.xml : listings-all.xml unmatched.txt
 
 
 # calculate or fetch the correct data URL, then get the data
-CALCULATED_URL = "$(shell ${XML} tr dataurl.xsl \
-			-s border="$(call getval,border)" \
-			-s listingsPlacement="$(call getval,listings_placement,auto)" \
-			-s expandForListings="$(call getval,expand_for_listings,yes)" \
-			-s minOffset="$(call getval,min_listings_box_size,65)" \
-			-s orientation="$(call getval,orientation,landscape)" \
-			-s size="$(call getval,size,two-page)" \
-			listings-all.xml)"
+#CALCULATED_URL = "$(shell ${XML} tr dataurl.xsl \
+#			-s border="$(call getval,border)" \
+#			-s listingsPlacement="$(call getval,listings_placement,auto)" \
+#			-s expandForListings="$(call getval,expand_for_listings,yes)" \
+#			-s minOffset="$(call getval,min_listings_box_size,65)" \
+#			-s orientation="$(call getval,orientation,landscape)" \
+#			-s size="$(call getval,size,two-page)" \
+#			listings-all.xml)"
 DATAURL = $(if $(findstring none,$(PROVIDED_URL)),$(CALCULATED_URL),$(PROVIDED_URL))
-data.osm : dataurl.xsl variables.xsl listings-all.xml relation.xml article.wiki
-	wget -q -O - ${DATAURL} > $@
+DATAFILE = $(shell ${XML} sel -t -v "//xsl:variable[@name='datafile']/text()" dataurl.xsl)
 
+data.osm : dataurl.xsl dataurl.xsl listings-all.xml relation.xml article.wiki
+	make ${DATAFILE}
+	cp ${DATAFILE} $@
 
+%.osm:
+	wget -O $@ `${XML} sel -t -v "//xsl:variable[@name='dataurl']/text()" dataurl.xsl`
 
 # This collection of rules fetch the description pages of the various
 # images which will download or (someday) upload from/to shared
@@ -159,20 +165,11 @@ svg_page.html : Config.mk
 	wget -q -O - http://wikitravel.org/shared/Image:${SVGZ} > $@
 
 
-
-
 # Build the rules file
 wikitravel-print-rules.xml : icon_rules.xsl vars.xsl listings.xml relation.xml style-*.xsl
 	${XML} tr icon_rules.xsl \
 		-s border="$(call getval,border)" \
-		-s listingsPlacement="$(call getval,listings_placement,auto)" \
-		-s expandForListings="$(call getval,expand_for_listings,yes)" \
-		-s minOffset="$(call getval,min_listings_box_size,65)" \
-		-s orientation="$(call getval,orientation,landscape)" \
-		-s size="$(call getval,size,two-page)" \
 		listings.xml > $@ 2> icon_rules.log
-
-
 
 # if the description page from the static overlay contains a current image
 # then fetch it, otherwise make a dummy overlay
@@ -186,31 +183,8 @@ overlay.svg : overlay_page.html
 listings.svg : listbox.xsl listings.xml wikitravel-print-rules.xml map.svg overlay.svg unmatched.svg
 	${XML} tr listbox.xsl listings.xml > $@ 2> listbox.log 
 
-_listings.svg : listings_box.xsl listings.xml wikitravel-print-rules.xml map.svg overlay.svg unmatched.svg
-	${XML} tr listings_box.xsl \
-		-s orientation="$(call getval,orientation,landscape)" \
-		-s size="$(call getval,size,two-page)" \
-		-s rulesfile="wikitravel-print-rules.xml" \
-		-s listingsPlacement="$(call getval,listings_placement,auto)" \
-		-s boxWidth="$(call getval,box_width,70)" \
-		-s box1X="$(call getval,box1_x)" \
-		-s box1Y="$(call getval,box1_y)" \
-		-s box1Height="$(call getval,box1_h)" \
-		-s box2X="$(call getval,box2_x)" \
-		-s box2Y="$(call getval,box2_y)" \
-		-s box2Height="$(call getval,box2_h)" \
-		-s box3X="$(call getval,box3_x)" \
-		-s box3Y="$(call getval,box3_y)" \
-		-s box3Height="$(call getval,box3_h)" \
-		-s box4X="$(call getval,box4_x)" \
-		-s box4Y="$(call getval,box4_y)" \
-		-s box4Height="$(call getval,box4_h)" \
-		listings.xml > $@ 2> listings_box.log
-
-
-
 # use inkscape to convert the layered SVG file into a PNG
-TRANSFORM = "${INKSCAPE} -z --export-png=$@ -w $(WIDTH) -h $(HEIGHT) listings.svg"
+TRANSFORM = "${INKSCAPE} -z --export-png=$@ -w $(PAGE_WIDTH) -h $(PAGE_HEIGHT) listings.svg"
 listings.png : listings.svg
 	# For some reason Make clobbers inkscape's memory footprint so background this
 	killall inkscape || /bin/true # sorry, one inkscape at a time
@@ -232,7 +206,6 @@ index.scm : Config.mk
 	echo '(gimp-quit 1 )' >> $@
 
 
-
 # execute the above scheme file in Gimp to 
 ${PNG} : listings.png index.scm
 	gimp -i -c -d -b - < index.scm >/dev/null 2>&1
@@ -250,11 +223,13 @@ namednodes.txt : data.osm
 	${XML} sel -T -t -m "//node/tag[@k='name:en']"  -v @v -n $< >> $@ || true
 	${XML} sel -T -t -m "//way/tag[@k='name:en']"  -v @v -n $< >> $@ || true
 
-vars.xsl: listings.xml data.osm calculation.py
-	python calculation.py ${DATAURL} `for i in //listing\|//see\|//do //buy //eat //drink //sleep; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
-	
-final-data.osm: vars.xsl
-	wget -O $@ `${XML} sel -t -v "//xsl:variable[@name='dataurl']/text()" vars.xsl`
+vars.xsl: listings.xml calculation.py
+	python calculation.py ${WIDTH} ${HEIGHT} ${DATAURL} `for i in //listing\|//see\|//do //buy //eat //drink //sleep; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
+
+# use the calculation script to determine the dataurl, listings are not yet known
+# as they depend on the data.osm file
+dataurl.xsl: relation.xml
+	python calculation.py ${WIDTH} ${HEIGHT} ${DATAURL} 0 0 0 0 0 > $@
 
 # find any listings which are not in the nodes list, and warn about them
 unmatched.txt : namednodes.txt listings.txt
@@ -307,7 +282,7 @@ clean : wt-clean osm-clean
 
 .PHONY : ding
 ding : map.svg ${SVGZ} unmatched.txt warnings
-	play -q bell.ogg
+	play -q bell.ogg || true
 
 .PHONY : adjustments 
 adjustments : listings.svg warnings
