@@ -76,6 +76,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
             <svg:defs id="defs-rulefile">
                 <xsl:call-template name="defs"/>
             </svg:defs>
+            
+            <!-- h=12.79 x=4.19 y=120-79.925+h w=28.396 -->
+            <svg:g transform="translate({-4.19 + $dataWidth - 28.396},{-($dataHeight - 79.925) + $dataHeight})">
+                <svg:use xlink:href="#wikitravel-logo" transform="scale(0.08)" />
+            </svg:g>
 
             <xsl:call-template name="make-listing-box">
                 <xsl:with-param name="box_number" select="1" />
@@ -89,6 +94,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
             <xsl:call-template name="make-listing-box">
                 <xsl:with-param name="box_number" select="4" />
             </xsl:call-template>
+            
+            <svg:flowRoot>
+                <svg:flowRegion>
+                    <svg:rect y="{$dataHeight - 5}px" x="2px" width="{$dataWidth - 5}px" height="8px" />
+                </svg:flowRegion>
+                <svg:text class="osm-credit-text">
+                    <xsl:text>Data: OpenStreetMap CC-by-sa 2.0</xsl:text>
+                </svg:text>
+            </svg:flowRoot>
         </svg:g>
     </xsl:template>
     
@@ -592,8 +606,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 font-variant: normal;
                 font-weight: bold;
                 font-stretch: normal;
-                text-align: center;
-                text-anchor: center;
+                text-align: left;
+                text-anchor: left;
                 line-height: 100%;
                 writing-mode: lr-tb;
                 fill: #3f3f3f;
