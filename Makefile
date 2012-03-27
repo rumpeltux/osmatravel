@@ -76,9 +76,17 @@ getvar = $(shell ${XML} sel -t -v "//xsl:variable[@name='$1']/text()" dataurl.xs
 # make the ultimate output files and optionally a noise
 all : map.svg ${SVGZ} unmatched.txt ${PNG} ${DING}
 
+# remove amenity|tourism tags from nodes in that are in the listing
+# so that they won't be rendered by osmarender
+filtered.osm: filter-nodes.xsl listings.xml data.osm
+	${XML} tr filter-nodes.xsl data.osm > $@ 2> filtered.log
+	
+# increase the font-size
+styles-z17.xml: stylesheets/osm-map-features-z17.xml
+	perl -ne "s/font-size: (\d+)/'font-size: '.\$$1*2/e;print" < $< > $@
 
 # transform OSM data into an SVG
-map.svg : data.osm osmarender.xsl wikitravel-print-rules.xml 
+map.svg : filtered.osm osmarender.xsl wikitravel-print-rules.xml 
 	${XML} tr --net osmarender.xsl wikitravel-print-rules.xml > $@ 2> osmarender.log
 
 
@@ -168,7 +176,7 @@ svg_page.html : Config.mk
 
 
 # Build the rules file
-wikitravel-print-rules.xml : icon_rules.xsl vars.xsl listings.xml relation.xml style-*.xsl
+wikitravel-print-rules.xml : icon_rules.xsl vars.xsl listings.xml relation.xml styles-z17.xml
 	${XML} tr icon_rules.xsl \
 		-s border="$(call getval,border)" \
 		listings.xml > $@ 2> icon_rules.log
