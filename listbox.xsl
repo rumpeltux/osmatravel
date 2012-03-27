@@ -78,7 +78,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
             </svg:defs>
             
             <!-- h=12.79 x=4.19 y=120-79.925+h w=28.396 -->
-            <svg:g transform="translate({-4.19 + $dataWidth - 28.396},{-($dataHeight - 79.925) + $dataHeight})">
+            <svg:g transform="translate({-4.19 + $dataWidth - 28.396},{-(120 - 79.925) + $dataHeight})">
                 <svg:use xlink:href="#wikitravel-logo" transform="scale(0.08)" />
             </svg:g>
 
