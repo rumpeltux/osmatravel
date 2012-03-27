@@ -39,7 +39,7 @@ UPLOAD = pywikipedia/upload.py
 ################################################################################
 
 
-#SIZE  = $(call getval,size,two-page)
+SIZE  = $(call getval,size,a4-landscape)
 #ORIENTATION = $(call getval,orientation,landscape)
 
 #LONG  = $(if $(findstring two-page,$(SIZE)),$(shell echo $$((2 * ${PAGE_WIDTH}))),${PAGE_HEIGHT})
@@ -47,10 +47,10 @@ UPLOAD = pywikipedia/upload.py
 
 #WIDTH = $(if $(findstring landscape,$(ORIENTATION)),$(LONG),$(SHORT))
 #HEIGHT = $(if $(findstring landscape,$(ORIENTATION)),$(SHORT),$(LONG))
-WIDTH = $(call getval,width,300.8)
-HEIGHT = $(call getval,height,173)
-PAGE_WIDTH = $(shell echo $$((10 * ${WIDTH})))
-PAGE_HEIGHT = $(shell echo $$((10 * ${HEIGHT})))
+WIDTH = $(call getvar,dataWidth)
+HEIGHT = $(call getvar,dataHeight)
+PAGE_WIDTH = $(shell echo 10*${WIDTH} | bc)
+PAGE_HEIGHT = $(shell echo 10*${HEIGHT} | bc)
 
 PROVIDED_URL = $(call getval,osm_url,none)
 
@@ -66,6 +66,8 @@ getval = $(shell if egrep -q '\[\[Image:.*\|$(1)=' article.wiki ;\
 				 else \
 				   	 echo $(2) ;\
 				 fi )
+				 
+getvar = $(shell ${XML} sel -t -v "//xsl:variable[@name='$1']/text()" dataurl.xsl)
 
 ################################################################################
 # RULES
@@ -151,7 +153,7 @@ data.osm : dataurl.xsl dataurl.xsl listings-all.xml relation.xml article.wiki
 	cp ${DATAFILE} $@
 
 %.osm:
-	wget -O $@ `${XML} sel -t -v "//xsl:variable[@name='dataurl']/text()" dataurl.xsl`
+	wget -O $@ $(call getvar,dataurl)
 
 # This collection of rules fetch the description pages of the various
 # images which will download or (someday) upload from/to shared
@@ -224,12 +226,12 @@ namednodes.txt : data.osm
 	${XML} sel -T -t -m "//way/tag[@k='name:en']"  -v @v -n $< >> $@ || true
 
 vars.xsl: listings.xml calculation.py
-	python calculation.py ${WIDTH} ${HEIGHT} ${DATAURL} `for i in //listing\|//see\|//do //buy //eat //drink //sleep; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
+	python calculation.py ${SIZE} ${DATAURL} `for i in //listing\|//see\|//do //buy //eat //drink //sleep; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
 
 # use the calculation script to determine the dataurl, listings are not yet known
 # as they depend on the data.osm file
 dataurl.xsl: relation.xml
-	python calculation.py ${WIDTH} ${HEIGHT} ${DATAURL} 0 0 0 0 0 > $@
+	python calculation.py ${SIZE} ${DATAURL} 0 0 0 0 0 > $@
 
 # find any listings which are not in the nodes list, and warn about them
 unmatched.txt : namednodes.txt listings.txt

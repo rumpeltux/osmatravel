@@ -1,9 +1,27 @@
 import math, sys
 
-dataWidth = float(sys.argv[1]) # the target image dimensions
-dataHeight = float(sys.argv[2])
-dataurl = sys.argv[3]
-numListings = map(int, sys.argv[4:]) # listings count for each category
+size = sys.argv[1]
+if '-' in size:
+    format, orientation = size.lower().split('-', 1)
+    assert format.startswith('a')
+    
+    a_n = int(format[1:])
+    _tmp = [841, 594, 420, 297, 210, 148, 105, 74, 52]
+    dataHeight = _tmp[a_n]
+    dataWidth  = _tmp[a_n + 1]
+    if orientation == 'landscape':
+        dataHeight, dataWidth = dataWidth, dataHeight
+        
+elif 'x' in size:
+    _tmp = size.split('x', 1)
+    dataWidth = float(_tmp[0]) # the target image dimensions
+    dataHeight = float(_tmp[1])
+
+else:
+    raise TypeError("unsupported size specification: %s" % size)
+
+dataurl = sys.argv[2]
+numListings = map(int, sys.argv[3:]) # listings count for each category
 
 ratio = dataWidth / dataHeight
 
@@ -76,7 +94,7 @@ boxWidth = (dataWidth - box_border) / numBoxes
 
 
 listingLines = sum([i + (2 if i > 0 else 0) for i in numListings])
-lineHeight = 1. / pixelLineHeight
+lineHeight = 4.25 # 1. / pixelLineHeight
 headline = 6.72 / lineHeight
 
 def _get_box_distribution(nBoxes, height):
@@ -130,15 +148,21 @@ else:
     height = bottomOffset * projection
     flow_top_margin = 2
     flow_bottom_margin = 2
-    flowHeight = height - flow_top_margin - flow_bottom_margin
     width  = dataWidth - box_border
+    flowHeight = height - flow_top_margin - flow_bottom_margin
     #numBoxes = int(width / boxWidth) # TODO make param
-    # TODO this assumes that everything fits in
     if flowHeight * numBoxes > lineHeight * listingLines:
         height = (lineHeight * listingLines + numBoxes) / numBoxes + flow_top_margin + flow_bottom_margin
-    flowHeight = height - flow_top_margin - flow_bottom_margin
-    # calculate the number of listings per box
-    boxes = list(_get_box_distribution(numBoxes, flowHeight))
+
+    while 1:
+        flowHeight = height - flow_top_margin - flow_bottom_margin
+        # calculate the number of listings per box
+        boxes = list(_get_box_distribution(numBoxes, flowHeight))
+        
+        if len(boxes) <= numBoxes:
+            break
+        # we couldn't fit everything. try again with higher boxes
+        height += lineHeight
 
 # calculate the first listing-index per box
 listing_start = [sum(boxes[0:i])+1 for i in xrange(numBoxes+1)]
