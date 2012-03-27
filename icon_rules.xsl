@@ -115,6 +115,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         </rules>
     </xsl:template>
     
+    <!-- relocate the road descriptions since we scaled the font -->
+    <xsl:template match="pathText[@dy='0.35px']/@dy">
+        <xsl:attribute name="dy"><xsl:text>0.7px</xsl:text></xsl:attribute>
+    </xsl:template>
+    
     <xsl:template match="svg:style/text()[last()]">
         <xsl:value-of select="." />
         <xsl:text>

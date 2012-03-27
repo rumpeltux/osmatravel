@@ -81,9 +81,11 @@ all : map.svg ${SVGZ} unmatched.txt ${PNG} ${DING}
 filtered.osm: filter-nodes.xsl listings.xml data.osm
 	${XML} tr filter-nodes.xsl data.osm > $@ 2> filtered.log
 	
-# increase the font-size
+# increase the font-size (the offset is adjusted in icon_rules.xsl)
+# stroke-size adjustment would make sense, too, but this looks ugly:
+# | perl -ne "s/\.highway(.+stroke-width: )([\d\.]+)/'.highway'.\$$1.\$$2*1.5/e;print" > $@
 styles-z17.xml: stylesheets/osm-map-features-z17.xml
-	perl -ne "s/font-size: (\d+)/'font-size: '.\$$1*2/e;print" < $< > $@
+	perl -ne "s/font-size: ([\d\.]+)/'font-size: '.\$$1*2/e;print" < $< > $@
 
 # transform OSM data into an SVG
 map.svg : filtered.osm osmarender.xsl wikitravel-print-rules.xml 
