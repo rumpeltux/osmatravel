@@ -41,11 +41,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 
     <!-- we need to have them grouped and not in random order -->    
     <xsl:variable name="_sorted_listings">
-            <xsl:copy-of select="//see | //listing | //do" />
+            <xsl:copy-of select="//see | //do" />
             <xsl:copy-of select="//buy" />
             <xsl:copy-of select="//eat" />
             <xsl:copy-of select="//drink" />
             <xsl:copy-of select="//sleep" />
+            <xsl:copy-of select="//listing" />
     </xsl:variable>
     
     <xsl:variable name="sorted_listings" select="exsl:node-set($_sorted_listings)/*" />
@@ -226,7 +227,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                lastListing: <xsl:value-of select="$lastListing"/>
         </xsl:message>
                 
-        <xsl:for-each select="//see | //listing | //do">
+        <xsl:for-each select="//see | //do">
             <xsl:call-template name="listbox-entry">
                 <xsl:with-param name="offset" select="0" />
                 <xsl:with-param name="firstListing" select="$firstListing"/>
@@ -237,7 +238,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         
         <xsl:for-each select="//buy">
             <xsl:call-template name="listbox-entry">
-                <xsl:with-param name="offset" select="count(//see | //listing | //do)" />
+                <xsl:with-param name="offset" select="count(//see | //do)" />
                 <xsl:with-param name="firstListing" select="$firstListing"/>
                 <xsl:with-param name="lastListing" select="$lastListing"/>
                 <xsl:with-param name="title">Buy</xsl:with-param>
@@ -246,7 +247,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         
         <xsl:for-each select="//eat">
             <xsl:call-template name="listbox-entry">
-                <xsl:with-param name="offset" select="count(//see | //listing | //do | //buy)" />
+                <xsl:with-param name="offset" select="count(//see | //do | //buy)" />
                 <xsl:with-param name="firstListing" select="$firstListing"/>
                 <xsl:with-param name="lastListing" select="$lastListing"/>
                 <xsl:with-param name="title">Eat</xsl:with-param>
@@ -255,7 +256,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         
         <xsl:for-each select="//drink">
             <xsl:call-template name="listbox-entry">
-                <xsl:with-param name="offset" select="count(//see | //listing | //do | //buy | //eat)" />
+                <xsl:with-param name="offset" select="count(//see | //do | //buy | //eat)" />
                 <xsl:with-param name="firstListing" select="$firstListing"/>
                 <xsl:with-param name="lastListing" select="$lastListing"/>
                 <xsl:with-param name="title">Drink</xsl:with-param>
@@ -264,10 +265,19 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     
         <xsl:for-each select="//sleep">
             <xsl:call-template name="listbox-entry">
-                <xsl:with-param name="offset" select="count(//see | //listing | //do | //buy | //eat | //drink)" />
+                <xsl:with-param name="offset" select="count(//see | //do | //buy | //eat | //drink)" />
                 <xsl:with-param name="firstListing" select="$firstListing"/>
                 <xsl:with-param name="lastListing" select="$lastListing"/>
                 <xsl:with-param name="title">Sleep</xsl:with-param>
+            </xsl:call-template>
+        </xsl:for-each>
+        
+        <xsl:for-each select="//listing">
+            <xsl:call-template name="listbox-entry">
+                <xsl:with-param name="offset" select="count(//see | //do | //buy | //eat | //drink | //sleep)" />
+                <xsl:with-param name="firstListing" select="$firstListing"/>
+                <xsl:with-param name="lastListing" select="$lastListing"/>
+                <xsl:with-param name="title">Misc</xsl:with-param>
             </xsl:call-template>
         </xsl:for-each>
     </xsl:template>
@@ -315,17 +325,19 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         <xsl:param name="current"/>
         <xsl:param name="last"/>
         <xsl:param name="count" required="yes" select="0"/>
-        <xsl:variable name="buyPos" select="count( //see | //listing | //do )"/>
-        <xsl:variable name="eatPos" select="count( //see | //listing | //do | //buy )"/>
-        <xsl:variable name="drinkPos" select="count( //see | //listing | //do | //buy | //eat )"/>
-        <xsl:variable name="sleepPos" select="count( //see | //listing | //do | //buy | //eat | //drink )"/>
+        <xsl:variable name="buyPos" select="count( //see | //do )"/>
+        <xsl:variable name="eatPos" select="count( //see | //do | //buy )"/>
+        <xsl:variable name="drinkPos" select="count( //see | //do | //buy | //eat )"/>
+        <xsl:variable name="sleepPos" select="count( //see | //do | //buy | //eat | //drink )"/>
+        <xsl:variable name="miscPos" select="count( //see | //do | //buy | //eat | //drink | //sleep)"/>
         <xsl:variable name="newCount">
             <xsl:choose>
                 <xsl:when test="$current = 1 
                              or $current = $sleepPos + 1 
                              or $current = $drinkPos + 1 
                              or $current = $eatPos + 1 
-                             or $current = $buyPos + 1 ">
+                             or $current = $buyPos + 1
+                             or $current = $miscPos + 1 ">
                     <xsl:value-of select="$count + 1"/>
                 </xsl:when>
                 <xsl:otherwise>
@@ -355,11 +367,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         <xsl:param name="y" required="yes" select="4"/>
         <xsl:variable name="xStart" select="$x * 1.112 - 0.7"/>
         <xsl:variable name="yStart" select="$y * 1.112 - 9.7"/>
-        <xsl:variable name="buyPos" select="count( //see | //listing | //do )"/>
-        <xsl:variable name="eatPos" select="count( //see | //listing | //do | //buy )"/>
-        <xsl:variable name="drinkPos" select="count( //see | //listing | //do | //buy | //eat )"/>
-        <xsl:variable name="sleepPos" select="count( //see | //listing | //do | //buy | //eat | //drink )"/>
-        <xsl:variable name="endPos" select="count( //see | //listing | //do | //buy | //eat | //drink | //sleep )"/>
+        <xsl:variable name="buyPos" select="count( //see | //do )"/>
+        <xsl:variable name="eatPos" select="count( //see | //do | //buy )"/>
+        <xsl:variable name="drinkPos" select="count( //see | //do | //buy | //eat )"/>
+        <xsl:variable name="sleepPos" select="count( //see | //do | //buy | //eat | //drink )"/>
+        <xsl:variable name="miscPos" select="count( //see | //do | //buy | //eat | //drink | //sleep )"/>
+        <xsl:variable name="endPos" select="count( //see | //do | //buy | //eat | //drink | //sleep | //listing)"/>
         <xsl:for-each select="$sorted_listings">
             <xsl:variable name="headerCount">
                 <xsl:call-template name="countHeaders">
@@ -369,6 +382,15 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
             </xsl:variable>
             <xsl:if test="position() &gt;= $firstListing and position() &lt;= $lastListing">
                 <xsl:choose>
+                    <xsl:when test="position() = $miscPos + 1">
+                        <xsl:call-template name="headingIcon">
+                            <xsl:with-param name="section">misc</xsl:with-param>
+                            <xsl:with-param name="x" select="$xStart"/>
+                            <xsl:with-param name="y" select="$yStart"/>
+                            <xsl:with-param name="line" select="position() - $firstListing + 1"/>
+                            <xsl:with-param name="numHeaders" select="$headerCount"/>
+                        </xsl:call-template>
+                    </xsl:when>
                     <xsl:when test="position() = $sleepPos + 1">
                         <xsl:call-template name="headingIcon">
                             <xsl:with-param name="section">sleep</xsl:with-param>
@@ -483,6 +505,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                       d="M 0,0 L 3.5,0 L 3.5,3.5 L 0,3.5 L 0,0 z "
                  />
         </svg:symbol>
+        
+        <svg:symbol class="icon-misc" id="misc">
+            <svg:path
+                      d="M 3.5,1.75 C 3.5,2.72 2.72,3.5 1.75,3.5 0.78,3.5 0,2.72 0,1.75 0,0.78 0.78,0 1.75,0 2.72,0 3.5,0.78 3.5,1.75 z "
+                 />
+        </svg:symbol>
 
         <svg:symbol class="icon-sleep" id="sleep">
              <svg:path
@@ -570,6 +598,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                  fill-rule: evenodd;
                  font-size: 4px;
                  stroke: none;
+            }
+            
+            .icon-misc {
+                 fill: #20941e;
             }
 
             .icon-sleep {

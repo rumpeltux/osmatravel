@@ -225,7 +225,7 @@ ${PNG} : listings.png index.scm
 
 # convert our listings into a simple text file
 listings.txt : listings-all.xml
-	${XML} sel -T -t -m '/listings' -m 'see|do|buy|eat|drink|sleep' -v @name -n $< > $@
+	${XML} sel -T -t -m '/listings' -m 'see|do|buy|eat|drink|sleep|listing' -v @name -n $< > $@
 
 
 # get a list of the named nodes in our OSM data
@@ -236,7 +236,7 @@ namednodes.txt : data.osm
 	${XML} sel -T -t -m "//way/tag[@k='name:en']"  -v @v -n $< >> $@ || true
 
 vars.xsl: listings.xml calculation.py
-	python calculation.py ${SIZE} ${DATAURL} `for i in //listing\|//see\|//do //buy //eat //drink //sleep; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
+	python calculation.py ${SIZE} ${DATAURL} `for i in //see\|//do //buy //eat //drink //sleep //listing; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
 
 # use the calculation script to determine the dataurl, listings are not yet known
 # as they depend on the data.osm file
