@@ -213,62 +213,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
         </xsl:if>
     </xsl:template>
 
-    <xsl:template name="countListings">
-        <xsl:param name="lines"/>
-        <xsl:param name="firstLine"/>
-        <xsl:param name="lineCount"/>
-        <xsl:param name="currentListing"/>
-
-        <!--xsl:message>
-                  lineCount: <xsl:value-of select="$lineCount"/>
-             currentListing: <xsl:value-of select="$currentListing"/>
-        count($allListings): <xsl:value-of select="count($allListings)"/>
-                listingName: <xsl:value-of select="$allListings[position() = $currentListing]/@name"/>
-        </xsl:message-->
-        <xsl:choose>
-            <xsl:when test="$lineCount &gt; $lines - 3 and ( $currentListing = count(//see | //listing | //do) + 1
-                                    or  $currentListing = count(//see | //listing | //do | //buy ) + 1
-                                    or  $currentListing = count(//see | //listing | //do | //buy | //eat) + 1
-                                    or  $currentListing = count(//see | //listing | //do | //buy | //eat | //drink ) + 1 )">
-                <xsl:value-of select="$currentListing"/>
-            </xsl:when>
-            <xsl:when test="$lineCount &lt; $lines">
-                <xsl:variable name="nextLineCount">
-                    <xsl:choose>
-                        <xsl:when test="$currentListing = 1
-                                    or  $currentListing = count(//see | //listing | //do) + 1
-                                    or  $currentListing = count(//see | //listing | //do | //buy ) + 1
-                                    or  $currentListing = count(//see | //listing | //do | //buy | //eat) + 1
-                                    or  $currentListing = count(//see | //listing | //do | //buy | //eat | //drink ) + 1 ">
-                            <xsl:value-of select="$lineCount + 3"/>
-                        </xsl:when>
-                        <xsl:otherwise>
-                            <xsl:value-of select="$lineCount + 1"/>
-                        </xsl:otherwise>
-                    </xsl:choose>
-                </xsl:variable>
-                <xsl:variable name="nextListing">
-                    <xsl:choose>
-                        <xsl:when test="$currentListing > count($sorted_listings)">
-                            <xsl:value-of select="$currentListing"/>
-                        </xsl:when>
-                        <xsl:otherwise>
-                            <xsl:value-of select="$currentListing + 1"/>
-                        </xsl:otherwise>
-                    </xsl:choose>
-                </xsl:variable>
-                <xsl:call-template name="countListings">
-                    <xsl:with-param name="lines" select="$lines"/>
-                    <xsl:with-param name="lineCount" select="$nextLineCount"/>
-                    <xsl:with-param name="currentListing" select="$nextListing"/>
-                </xsl:call-template>
-            </xsl:when>
-            <xsl:otherwise>
-                <xsl:value-of select="$currentListing"/>
-            </xsl:otherwise>
-        </xsl:choose>
-    </xsl:template>
-
     <xsl:template name="printListings">
         <xsl:param name="lines"/>
         <xsl:param name="firstListing"/>
