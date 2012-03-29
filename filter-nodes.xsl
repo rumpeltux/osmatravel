@@ -54,7 +54,7 @@
     </xsl:choose>
   </xsl:template>
   <!-- :<xsl:value-of select="@k"/><xsl:value-of select="parent()/tag[@k='name']/@v"/> -->
-  <xsl:template match="tag[@k='amenity' or @k='tourism' or @k='railway' or @k='building']" mode="listing"><xsl:message>omity</xsl:message></xsl:template>
+  <xsl:template match="tag[@k='amenity' or @k='tourism' or @k='railway' or @k='building' or @k='shop']" mode="listing"><xsl:message>omity</xsl:message></xsl:template>
   
   <xsl:template match="tag[@k='name']" mode="name"><xsl:message>omit <xsl:value-of select="@v" /></xsl:message></xsl:template>
 </xsl:stylesheet>

@@ -83,7 +83,7 @@ datafile = "%x.osm" % abs(hash(dataurl))
 #new_height = new_bbox.height * 10000 * new_scale * projection
 #new_width =  new_bbox.width * 10000 * new_scale
 
-mapScale = 0.9 # scales the map area to a smaller size, but
+mapScale = 0.8 # scales the map area to a smaller size, but
                # since font-size and stroke-width stay constant,
                # this in-fact increases the font-size slightly
 pixelLineHeight = 0.19 # this is fixed and hardcoded in the xsl file
