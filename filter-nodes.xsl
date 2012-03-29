@@ -35,8 +35,9 @@
     </xsl:variable>
     <!--xsl:variable name="stripName" select="count($node/tag[@k='amenity' and @v='bank'])" /-->
     <xsl:variable name="stripName" select="count($node/tag[@k='highway' or @k='railway' or @k='barrier' or (@k='amenity' and (@v='bus_station' or @v='taxi'))])" />
+
     <xsl:choose>
-      <xsl:when test="$nodeInListings = 1">
+      <xsl:when test="$nodeInListings != ''">
          <xsl:copy>
            <xsl:apply-templates select="node()|@*" mode="listing" />
          </xsl:copy>
@@ -53,7 +54,7 @@
     </xsl:choose>
   </xsl:template>
   <!-- :<xsl:value-of select="@k"/><xsl:value-of select="parent()/tag[@k='name']/@v"/> -->
-  <xsl:template match="tag[@k='amenity']|tag[@k='tourism']" mode="listing"><xsl:message>omity</xsl:message></xsl:template>
+  <xsl:template match="tag[@k='amenity' or @k='tourism' or @k='railway' or @k='building']" mode="listing"><xsl:message>omity</xsl:message></xsl:template>
   
   <xsl:template match="tag[@k='name']" mode="name"><xsl:message>omit <xsl:value-of select="@v" /></xsl:message></xsl:template>
 </xsl:stylesheet>
