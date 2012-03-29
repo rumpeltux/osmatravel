@@ -1,0 +1,77 @@
+= Welcome to Osmatravel =
+
+This project is a fork of [https://gitorious.org/osmatravel gitorious/osmatravel] and intends to automate map-generation for Wikitravel articles.
+
+It is an updated and slightly different process which tries to generate maps without much intervention. Thus it should allow the quick generation of maps even for smaller articles without much work effort.
+
+== Installation ==
+
+The installation is straightforward, but requires a unix system, preferably Linux/Ubuntu:
+ wget https://github.com/rumpeltux/osmatravel/tarball/master -O - | tar xz
+ cd rumpeltux-osmatravel*
+ make stylesheets ARTICLE=undef
+ # Optional: download pywikipedia for automated map-uploading
+ wget http://pywikipedia.org/nightly/package/pywikipedia/pywikipedia-nightly.tgz -O - | tar xz
+ 
+Also make sure, you have ''xmlstarlet'', ''inkscape'' and ''gimp'' installed.
+
+== Creating a new map ==
+
+The key requirements are:
+* [[#Find_the_destination_in_OSM|Select the destination area bbox url]].
+* [[#Fixing_data|Synchronize listing-entries in the article and name-tags in OSM]].
+* Add the image to the article:<br /><tt><nowiki>[[Image:Town_map_with_listings.png|thumb|350px|osm_url=http://api.openstreetmap.org/api/0.6/map?bbox...|is_in=Town|description]]</nowiki></tt><br />See [[#Variables|Variables]]  for further customization.
+* [[#Installation|Install osmatravel]]  and run:
+    echo ARTICLE=Town > Config.mk; make
+* Upload the image (either by hand or use <tt>make upload-svg && make upload-png</tt>)
+
+=== Some further notes ===
+* Most steps are still the same as in the [http://wikitravel.org/en/Wikitravel:How_to_create_a_map#Expert_maps original article]
+* The old argument styles do not work anymore, see [[#Variables|Variables]].
+* The selected bbox area has a certain width and height, however this area is then adjust so that the map fill the actual specified width and height (''size'' argument). This creates space either at the left or the bottom, where the listing boxes are then placed.
+* If further modifications / adjustments are needed it would be a good idea to adjust the code instead of individual maps / svg-files. Introduce another param, send a patch :)
+
+== Variables ==
+
+The following variables can be usid in the image-Tag:
+* '''size''': e.g. ''a4-landscape'' (default), ''a3-portrait''... etc., 150x200 (width*height in mm)
+* '''zoom''': the openstreetmap zoom-factor (''1''..''17'', default: ''17'')
+* '''is_in''': used to create the ''Maps of Town'' category in the description
+* '''osm_url''': i.e. ''http://api.openstreetmap.org/api/0.6/map?bbox=...''
+* '''border''': the name of an relation (instead of relid/osm_url)
+* '''relid''': the id of an relation (instead of border/osm_url)
+
+== Find the destination in OSM ==
+
+* I do this by starting ''josm'' on the commandline, select the download button and select the area that definitely must be in the map. When hitting ok, josm will print the bbox url on the commandline, which can be copied to the article.
+* Another way would be to go to http://www.informationfreeway.org/ which shows Lat and Lon. Note down the Koordinates for the bottom-left and the top-right corner of your area. The url is then constructed as follows: http://www.openstreetmap.org/api/0.6/map?bbox=$bottomLeftLongitude,$bottomLeftLatitude,$topRightLongitude,$topRightLatitude
+
+See also: [http://wikitravel.org/en/Wikitravel:How_to_create_a_map#Find_the_destination_in_OSM Wikitravel:How_to_create_a_map#Find_the_destination_in_OSM]
+
+== Fixing data ==
+Add <tt><nowiki><listing name="..." /></nowiki></tt> for things that shall be on the map and make sure these nodes / ways are available in openstreetmap as well (also check to see that the other ''name''="..." tags in the listings match the ''name'' or ''name:en'' tag in OSM.
+Only elements using the <nowiki><listing> or <sleep> or <eat> etc. tags will be considered.</nowiki>
+
+See also: [http://wikitravel.org/en/Wikitravel:How_to_create_a_map#Edit_in_OSM Wikitravel:How_to_create_a_map#Edit_in_OSM]
+
+== Automated uploading to Wikitravel-Shared ==
+1. Install pywikipedia (see [[#Installation|Installation]])
+2. Configure pywikipedia. Create the file <tt>pywikipedia/user_config.py</tt>:
+ # -*- coding: utf-8  -*-
+ family = 'wikitravel_shared'
+ mylang = ''
+ usernames['wikitravel_shared']['wikitravel_shared'] = u'YOUR_USERNAME'
+ password_file = 'wikitravel-password'
+3. Store your wikitravel-shared password:
+ echo "('YOUR_USERNAME', 'YOUR_PASSWORD')" > pywikipedia/wikitravel-password
+ chmod 600 pywikipedia/wikitravel-password
+4. Upload your generated maps:
+ make upload-svg
+ make upload-png
+
+== Further Ideas / TODO ==
+
+* Place listings that are not in OSM, but have lat and lon attributes on the map
+* Allow multiple maps per article. They could have a key= attribute, which can then be referenced in the listings, so that it appears only in the selected maps.
+* create a webservice (similar to the [http://maps.navit-project.org/ Navit one]) that allows bbox selection and automatically suggests paper-sizes for the selected zoom-level
+* create a webservice that generates the maps (svg-files)
