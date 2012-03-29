@@ -24,18 +24,18 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 
     <xsl:output omit-xml-declaration="no" indent="yes" encoding="UTF-8"/>
 
+    <xsl:include href="vars.xsl"/>
     <xsl:param name="border"/>
     <xsl:param name="orientation"/>
     <xsl:param name="size"/>
     <xsl:param name="expandForListings" required="yes" select="no"/>
     <xsl:param name="minOffset" required="yes" select="78"/>
     <xsl:param name="cropMarginFactor" required="yes" select="0.04"/>
-    <xsl:param name="zoomFactor" required="no" select="1.2 div 0.107"/>
+    <xsl:param name="zoomFactor" required="no" select="1.2 div $osmrules/rules/@symbolScale div $scale * $mapScale"/>
     <xsl:param name="attenuationFactor" required="no" select="7"/>
 
-    <xsl:include href="vars.xsl"/>
     <xsl:variable name="reldata" select="document('relation.xml')"/>
-    <xsl:variable name="osmrules" select="document('styles-z17.xml')"/>
+    <xsl:variable name="osmrules" select="document('style.xml')"/>
 
     <xsl:template name="adjustZoom">
         <xsl:param name="value"/>
@@ -73,16 +73,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
             symbolsDir="stylesheets/symbols"
             interactive="no">
             <xsl:attribute name="scale">
-                <xsl:value-of select="$scale"/>
+                <xsl:value-of select="$mapScale"/>
             </xsl:attribute>
             <xsl:attribute name="textAttenuation">
-                <xsl:value-of select="$attenuationFactor * $scale"/>
+                <xsl:value-of select="$osmrules/rules/@textAttenuation"/>
             </xsl:attribute>
             <xsl:attribute name="dataurl">
                 <xsl:value-of select="$dataurl"/>
             </xsl:attribute>
             <xsl:attribute name="symbolScale">
-                <xsl:value-of select="0.107"/>
+                <xsl:value-of select="$osmrules/rules/@symbolScale"/>
             </xsl:attribute>
             <xsl:attribute name="leftOffset">
                 <xsl:value-of select="$leftOffset"/>
@@ -117,9 +117,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     </xsl:template>
     
     <!-- relocate the road descriptions since we scaled the font -->
-    <xsl:template match="pathText[@dy='0.35px']/@dy">
+    <!--xsl:template match="pathText[@dy='0.35px']/@dy">
         <xsl:attribute name="dy"><xsl:text>0.7px</xsl:text></xsl:attribute>
-    </xsl:template>
+    </xsl:template-->
     
     <xsl:template match="svg:style/text()[last()]">
         <xsl:value-of select="." />

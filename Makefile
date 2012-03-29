@@ -49,8 +49,9 @@ SIZE  = $(call getval,size,a4-landscape)
 #HEIGHT = $(if $(findstring landscape,$(ORIENTATION)),$(SHORT),$(LONG))
 WIDTH = $(call getvar,dataWidth)
 HEIGHT = $(call getvar,dataHeight)
-PAGE_WIDTH = $(shell echo 10*${WIDTH} | bc)
-PAGE_HEIGHT = $(shell echo 10*${HEIGHT} | bc)
+# export at 300dpi
+PAGE_WIDTH  = $(shell echo ${WIDTH}*300/25.4 | bc)
+PAGE_HEIGHT = $(shell echo ${HEIGHT}*300/25.4 | bc)
 
 PROVIDED_URL = $(call getval,osm_url,none)
 
@@ -81,11 +82,9 @@ all : map.svg ${SVGZ} unmatched.txt ${PNG} ${DING}
 filtered.osm: filter-nodes.xsl listings.xml data.osm
 	${XML} tr filter-nodes.xsl data.osm > $@ 2> filtered.log
 	
-# increase the font-size (the offset is adjusted in icon_rules.xsl)
-# stroke-size adjustment would make sense, too, but this looks ugly:
-# | perl -ne "s/\.highway(.+stroke-width: )([\d\.]+)/'.highway'.\$$1.\$$2*1.5/e;print" > $@
-styles-z17.xml: stylesheets/osm-map-features-z17.xml
-	perl -ne "s/font-size: ([\d\.]+)/'font-size: '.\$$1*2/e;print" < $< > $@
+ZOOMLEVEL = $(call getval,zoom,17)
+style.xml: stylesheets/osm-map-features-z*.xml article.wiki 
+	cp stylesheets/osm-map-features-z${ZOOMLEVEL}.xml $@
 
 # transform OSM data into an SVG
 map.svg : filtered.osm osmarender.xsl wikitravel-print-rules.xml 
@@ -178,9 +177,8 @@ svg_page.html : Config.mk
 
 
 # Build the rules file
-wikitravel-print-rules.xml : icon_rules.xsl vars.xsl listings.xml relation.xml styles-z17.xml
+wikitravel-print-rules.xml : icon_rules.xsl vars.xsl listings.xml style.xml
 	${XML} tr icon_rules.xsl \
-		-s border="$(call getval,border)" \
 		listings.xml > $@ 2> icon_rules.log
 
 # if the description page from the static overlay contains a current image

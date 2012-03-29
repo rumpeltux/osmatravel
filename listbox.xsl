@@ -72,7 +72,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
 
     <xsl:template name="specifiedListingsBoxes">
 
-        <svg:g inkscape:groupmode="layer" inkscape:label="Listings Box">
+        <svg:g inkscape:groupmode="layer" inkscape:label="Listings Box"
+                transform="scale({1 div $scale * $mapScale})">
 
             <svg:defs id="defs-rulefile">
                 <xsl:call-template name="defs"/>

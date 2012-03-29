@@ -6,7 +6,7 @@ if '-' in size:
     assert format.startswith('a')
     
     a_n = int(format[1:])
-    _tmp = [841, 594, 420, 297, 210, 148, 105, 74, 52]
+    _tmp = [1600, 841, 594, 420, 297, 210, 148, 105, 74, 52]
     dataHeight = _tmp[a_n]
     dataWidth  = _tmp[a_n + 1]
     if orientation == 'landscape':
@@ -83,6 +83,9 @@ datafile = "%x.osm" % abs(hash(dataurl))
 #new_height = new_bbox.height * 10000 * new_scale * projection
 #new_width =  new_bbox.width * 10000 * new_scale
 
+mapScale = 0.9 # scales the map area to a smaller size, but
+               # since font-size and stroke-width stay constant,
+               # this in-fact increases the font-size slightly
 pixelLineHeight = 0.19 # this is fixed and hardcoded in the xsl file
 
 box_border = 10
