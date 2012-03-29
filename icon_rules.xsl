@@ -233,6 +233,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 <symbol width='2px' 
                         height='2px'
                         transform='scale({$zoomFactor}) translate(-1.75,-1.75)'
+                        layer="6"
                         xlink:href="#see-{position()}" />
             </rule>
             <rule e="way" k="name:en|name" layer="5">
@@ -242,6 +243,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 <areaSymbol width='2px' 
                         height='2px'
                         transform='scale({$zoomFactor}) translate(-1.75,-1.75)'
+                        layer="6"
                         xlink:href="#see-{position()}" />
             </rule>
         </xsl:for-each>
@@ -275,6 +277,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 <symbol width='2px' 
                         height='2px'
                         transform='scale({$zoomFactor}) translate(-1.75,-1.75)'
+                        layer="6"
                         xlink:href="#sleep-{position()}" />
             </rule>
         </xsl:for-each>
@@ -287,6 +290,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 <symbol width='2px' 
                         height='2px'
                         transform='scale({$zoomFactor}) translate(-1.75,-1.75)'
+                        layer="6"
                         xlink:href="#buy-{position()}" />
             </rule>
         </xsl:for-each>
@@ -299,6 +303,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 <symbol width='2px' 
                         height='2px'
                         transform='scale({$zoomFactor}) translate(-2.25,-2.25)'
+                        layer="6"
                         xlink:href="#eat-{position()}" />
             </rule>
         </xsl:for-each>
@@ -311,6 +316,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 <symbol width='2px' 
                         height='2px'
                         transform='scale({$zoomFactor}) translate(-1.75,-1.75)'
+                        layer="6"
                         xlink:href="#drink-{position()}" />
             </rule>
         </xsl:for-each>
