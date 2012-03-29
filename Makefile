@@ -22,7 +22,7 @@
 -include Config.mk
 
 ifndef ARTICLE
-$(error You must set the variable ARTICLE, eg. make adjustments ARTICLE=Paris/6th_arrondissement)
+$(error You must set the variable ARTICLE, eg. make Config.mk ARTICLE=Paris/6th_arrondissement)
 endif
 
 BELL = no
@@ -38,20 +38,14 @@ UPLOAD = pywikipedia/upload.py
 # Functions
 ################################################################################
 
-
 SIZE  = $(call getval,size,a4-landscape)
-#ORIENTATION = $(call getval,orientation,landscape)
 
-#LONG  = $(if $(findstring two-page,$(SIZE)),$(shell echo $$((2 * ${PAGE_WIDTH}))),${PAGE_HEIGHT})
-#SHORT =  $(if $(findstring two-page,$(SIZE)),${PAGE_HEIGHT},${PAGE_WIDTH})
-
-#WIDTH = $(if $(findstring landscape,$(ORIENTATION)),$(LONG),$(SHORT))
-#HEIGHT = $(if $(findstring landscape,$(ORIENTATION)),$(SHORT),$(LONG))
 WIDTH = $(call getvar,dataWidth)
 HEIGHT = $(call getvar,dataHeight)
 # export at 300dpi
 PAGE_WIDTH  = $(shell echo ${WIDTH}*300/25.4 | bc)
 PAGE_HEIGHT = $(shell echo ${HEIGHT}*300/25.4 | bc)
+ZOOMLEVEL = $(call getval,zoom,17)
 
 PROVIDED_URL = $(call getval,osm_url,none)
 
@@ -81,8 +75,11 @@ all : map.svg ${SVGZ} unmatched.txt ${PNG} ${DING}
 # so that they won't be rendered by osmarender
 filtered.osm: filter-nodes.xsl listings.xml data.osm
 	${XML} tr filter-nodes.xsl data.osm > $@ 2> filtered.log
-	
-ZOOMLEVEL = $(call getval,zoom,17)
+
+stylesheets:
+	@echo Downloading osmarender stylesheets ...
+	wget -nv -r -np -R index.html -nH --cut-dirs 3 http://svn.openstreetmap.org/applications/rendering/osmarender/stylesheets/
+
 style.xml: stylesheets/osm-map-features-z*.xml article.wiki 
 	cp stylesheets/osm-map-features-z${ZOOMLEVEL}.xml $@
 
@@ -146,18 +143,11 @@ listings.xml : listings-all.xml unmatched.txt
 
 
 # calculate or fetch the correct data URL, then get the data
-#CALCULATED_URL = "$(shell ${XML} tr dataurl.xsl \
-#			-s border="$(call getval,border)" \
-#			-s listingsPlacement="$(call getval,listings_placement,auto)" \
-#			-s expandForListings="$(call getval,expand_for_listings,yes)" \
-#			-s minOffset="$(call getval,min_listings_box_size,65)" \
-#			-s orientation="$(call getval,orientation,landscape)" \
-#			-s size="$(call getval,size,two-page)" \
-#			listings-all.xml)"
+CALCULATED_URL = "$(shell ${XML} tr --omit-decl relation_bbox.xsl relation.xml)"
 DATAURL = $(if $(findstring none,$(PROVIDED_URL)),$(CALCULATED_URL),$(PROVIDED_URL))
-DATAFILE = $(shell ${XML} sel -t -v "//xsl:variable[@name='datafile']/text()" dataurl.xsl)
+DATAFILE = $(call getvar,datafile)
 
-data.osm : dataurl.xsl dataurl.xsl listings-all.xml relation.xml article.wiki
+data.osm : dataurl.xsl listings-all.xml relation.xml article.wiki
 	make ${DATAFILE}
 	cp ${DATAFILE} $@
 
@@ -223,7 +213,7 @@ ${PNG} : listings.png index.scm
 
 # convert our listings into a simple text file
 listings.txt : listings-all.xml
-	${XML} sel -T -t -m '/listings' -m 'see|do|buy|eat|drink|sleep|listing' -v @name -n $< > $@
+	${XML} sel -T -t -m '/listings' -m 'see|do|buy|eat|drink|sleep|listing' -v @name -n $< > $@ || true
 
 
 # get a list of the named nodes in our OSM data
@@ -233,12 +223,12 @@ namednodes.txt : data.osm
 	${XML} sel -T -t -m "//node/tag[@k='name:en']"  -v @v -n $< >> $@ || true
 	${XML} sel -T -t -m "//way/tag[@k='name:en']"  -v @v -n $< >> $@ || true
 
-vars.xsl: listings.xml calculation.py
+vars.xsl: listings.xml calculation.py relation.xml dataurl.xsl
 	python calculation.py ${SIZE} ${DATAURL} `for i in //see\|//do //buy //eat //drink //sleep //listing; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
 
 # use the calculation script to determine the dataurl, listings are not yet known
 # as they depend on the data.osm file
-dataurl.xsl: relation.xml
+dataurl.xsl: calculation.py relation.xml
 	python calculation.py ${SIZE} ${DATAURL} 0 0 0 0 0 > $@
 
 # find any listings which are not in the nodes list, and warn about them
@@ -256,7 +246,7 @@ unmatched.xml : unmatched.txt
 
 # create an xsl layer with the unmatched listings
 unmatched.svg : unmatched.xsl unmatched.xml map.svg
-	xmlstarlet tr unmatched.xsl map.svg > $@
+	${XML} tr unmatched.xsl map.svg > $@
 
 
 
@@ -274,12 +264,12 @@ warnings : unmatched.txt
 # cleanup files from Wikitravel
 .PHONY : wt-clean
 wt-clean :
-	${RM} article.xml article.wiki wikitravel-print-rules.xml listings-all.xml listings.xml listings.txt overlay.svg overlay_page.html
+	${RM} article.xml article.wiki wikitravel-print-rules.xml listings-all.xml listings.xml listings.txt overlay.svg overlay_page.html dataurl.xsl
 
 #cleanup files from openstreetmap
 .PHONY : osm-clean
 osm-clean : 
-	${RM} data.osm relation.xml rels.xml relid
+	${RM} *.osm relation.xml rels.xml relid vars.xml
 
 # cleanup everything
 .PHONY : clean
@@ -289,6 +279,7 @@ clean : wt-clean osm-clean
 # scour
 .PHONY : dist-clean
 	${RM} *listings.png *listings.svg *.log Config.mk
+	${RM} -r stylesheets
 
 .PHONY : ding
 ding : map.svg ${SVGZ} unmatched.txt warnings
@@ -307,13 +298,17 @@ svg : ${SVGZ}
 .PHONY : svg
 png : ${PNG}
 
+UPLOAD_MESSAGE = "Created using [http://wikitravel.org/en/Wikitravel:How_to_create_a_map osmatravel]\
+{{Imagecredit|credit=Selfmade|captureDate=|location=|source=OSM|caption=${ARTICLE}|description=Map of ${ARTICLE}}}\
+{{Map|$(call getval,is_in)}}"
+
 .PHONY : upload-svg
 upload-svg : ${SVGZ}
-	${PYTHON} ${UPLOAD} -keep -noverify ${SVGZ} >/dev/null 2>&1
+	${PYTHON} ${UPLOAD} -keep -noverify ${SVGZ} ${UPLOAD_MESSAGE} 2>&1
 
 .PHONY : upload-png
 upload-png : ${PNG}
-	${PYTHON} ${UPLOAD} -keep -noverify ${PNG} >/dev/null 2>&1
+	${PYTHON} ${UPLOAD} -keep -noverify ${PNG} ${UPLOAD_MESSAGE} 2>&1
 
 .DELETE_ON_ERROR : 
 
