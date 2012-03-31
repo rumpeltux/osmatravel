@@ -110,7 +110,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
     
     <xsl:template name="make-listing-box">
         <xsl:param name="box_number" />
-        <xsl:variable name="xpos" select="$x + $boxWidth * ( $box_number - 1 )" />
+        <xsl:variable name="xpos" select="$x + $nextBox_xoffset * ( $box_number - 1 )" />
         
         <xsl:if test="$boxes[$box_number] &gt; 0">
             <svg:rect class="listings-box">

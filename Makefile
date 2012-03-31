@@ -45,6 +45,8 @@ HEIGHT = $(call getvar,dataHeight)
 # export at 300dpi
 PAGE_WIDTH  = $(shell echo ${WIDTH}*300/25.4 | bc)
 PAGE_HEIGHT = $(shell echo ${HEIGHT}*300/25.4 | bc)
+
+PLACEMENT = $(call getval,placement,left-bottom)
 ZOOMLEVEL = $(call getval,zoom,17)
 
 PROVIDED_URL = $(call getval,osm_url,none)
@@ -224,12 +226,12 @@ namednodes.txt : data.osm
 	${XML} sel -T -t -m "//way/tag[@k='name:en']"  -v @v -n $< >> $@ || true
 
 vars.xsl: listings.xml calculation.py relation.xml dataurl.xsl
-	python calculation.py ${SIZE} ${DATAURL} `for i in //see\|//do //buy //eat //drink //sleep //listing; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
+	python calculation.py ${SIZE} ${DATAURL} ${PLACEMENT} `for i in //see\|//do //buy //eat //drink //sleep //listing; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
 
 # use the calculation script to determine the dataurl, listings are not yet known
 # as they depend on the data.osm file
 dataurl.xsl: calculation.py relation.xml
-	python calculation.py ${SIZE} ${DATAURL} 0 0 0 0 0 > $@
+	python calculation.py ${SIZE} ${DATAURL} ${PLACEMENT} 0 0 0 0 0 > $@
 
 # find any listings which are not in the nodes list, and warn about them
 unmatched.txt : namednodes.txt listings.txt

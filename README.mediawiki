@@ -37,6 +37,7 @@ The following variables can be usid in the image-Tag:
 * '''size''': e.g. ''a4-landscape'' (default), ''a3-portrait''... etc., 150x200 (width*height in mm)
 * '''zoom''': the openstreetmap zoom-factor (''1''..''17'', default: ''17'')
 * '''is_in''': used to create the ''Maps of Town'' category in the description
+* '''placement''': the listing-box placement specification, e.g. '''bottom-left''' (default), '''top-right''' ...<br />This also adjusts the map-extension creating free space to fit the size specification at the specified side.
 * '''osm_url''': i.e. ''http://api.openstreetmap.org/api/0.6/map?bbox=...''
 * '''border''': the name of an relation (instead of relid/osm_url)
 * '''relid''': the id of an relation (instead of border/osm_url)
@@ -56,6 +57,7 @@ See also: [http://wikitravel.org/en/Wikitravel:How_to_create_a_map#Edit_in_OSM W
 
 == Automated uploading to Wikitravel-Shared ==
 1. Install pywikipedia (see [[#Installation|Installation]])
+
 2. Configure pywikipedia. Create the file <tt>pywikipedia/user_config.py</tt>:
  # -*- coding: utf-8  -*-
  family = 'wikitravel_shared'

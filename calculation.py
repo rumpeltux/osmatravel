@@ -21,7 +21,8 @@ else:
     raise TypeError("unsupported size specification: %s" % size)
 
 dataurl = sys.argv[2]
-numListings = map(int, sys.argv[3:]) # listings count for each category
+placement = sys.argv[3]
+numListings = map(int, sys.argv[4:]) # listings count for each category
 
 ratio = dataWidth / dataHeight
 
@@ -61,15 +62,23 @@ if dataWidth - bboxWidth * scale < 0:
 
 # fitting the bbox of the map into our dimensions will introduce margins
 # either on the left or on the bottom
-# TODO allow placement right, top, middle ...
+# default is placement on left and bottom, but that can be
+# changed using the placement option
 leftOffset = dataWidth - bboxWidth * scale
 bottomOffset = (dataHeight - bboxHeight * scale) / projection
- 
+topOffset = 0
+rightOffset = 0
+if "top" in placement:
+    bottomOffset, topOffset = topOffset, bottomOffset
+if "right" in placement:
+    leftOffset, rightOffset = rightOffset, leftOffset
+
 # calculate the coordinates for the revised location,
 # so that there is all data for the image available
 _coords = [bbox.x1 - leftOffset / (10000 * scale),
      bbox.y1 - bottomOffset / (10000 * scale),
-     bbox.x2, bbox.y2]
+     bbox.x2 + rightOffset / (10000 * scale),
+     bbox.y2 + topOffset / (10000 * scale)]
 dataurl = "http://www.openstreetmap.org/api/0.6/map?bbox=" + ",".join(map(str,_coords))
 datafile = "%x.osm" % abs(hash(dataurl))
 
@@ -127,12 +136,12 @@ def _get_box_distribution(nBoxes, height):
     yield cur_elems
 
 
-if leftOffset > bottomOffset:
+if leftOffset + rightOffset > bottomOffset + topOffset:
     # the map area is extended, such that there is space to the left not covering
     # the main area of interest. Thus we create one box on the left and calculate
     # its attributes:
     boxLocation = "left"
-    width = leftOffset
+    width = max(leftOffset, rightOffset)
     height = dataHeight - 2*box_border
     numBoxes = 1
     if height < lineHeight * listingLines:
@@ -144,12 +153,12 @@ else:
     # there is space on the bottom, so we try to fit as many boxes
     # there as possible
     boxLocation = "bottom"
-    height = bottomOffset * projection
+    height = max(bottomOffset, topOffset) * projection
     flow_top_margin = 2
     flow_bottom_margin = 2
     width  = dataWidth - box_border
     flowHeight = height - flow_top_margin - flow_bottom_margin
-    #numBoxes = int(width / boxWidth) # TODO make param
+
     if flowHeight * numBoxes > lineHeight * listingLines:
         height = (lineHeight * listingLines + numBoxes) / numBoxes + flow_top_margin + flow_bottom_margin
 
@@ -167,8 +176,12 @@ else:
 listing_start = [sum(boxes[0:i])+1 for i in xrange(numBoxes+1)]
 
 # the position of the first box
-y = dataHeight - box_border - height
+y = box_border if "top" in placement else dataHeight - box_border - height
 x = box_border
+nextBox_xoffset = boxWidth
+if "right" in placement:
+    x = dataWidth - boxWidth * numBoxes
+    
 
 # ------- print us a nice xsl file with all the values
 keys = locals().keys()
