@@ -53,15 +53,11 @@ projection = 1 / math.cos(latr)
 bboxWidth = bbox.width * 10000
 bboxHeight = bbox.height * 10000 * projection
 
-relation_ratio = bboxWidth / bboxHeight
-if relation_ratio < ratio:
-    raw_scale = dataHeight / bboxHeight
-    testoffset = dataWidth - bboxWidth * raw_scale
-else:
-    raw_scale = dataWidth / bboxWidth
-    testoffset = dataHeight - bboxHeight * raw_scale
-
-scale = raw_scale # TODO here would be the expandForListings setting
+# now see how we can fix the map
+scale = dataHeight / bboxHeight
+if dataWidth - bboxWidth * scale < 0:
+    # we never want to remove stuff, so make sure we always make it bigger
+    scale = dataWidth / bboxWidth
 
 # fitting the bbox of the map into our dimensions will introduce margins
 # either on the left or on the bottom
