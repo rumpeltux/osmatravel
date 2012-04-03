@@ -71,24 +71,11 @@ getvar = $(shell ${XML} sel -t -v "//xsl:variable[@name='$1']/text()" dataurl.xs
 ################################################################################
 
 # make the ultimate output files and optionally a noise
-all : map.svg ${SVGZ} unmatched.txt ${PNG} ${DING}
-
-# remove amenity|tourism tags from nodes in that are in the listing
-# so that they won't be rendered by osmarender
-filtered.osm: filter-nodes.xsl listings.xml data.osm
-	${XML} tr filter-nodes.xsl data.osm > $@ 2> filtered.log
+all : stylesheets map.svg ${SVGZ} unmatched.txt ${PNG} ${DING}
 
 stylesheets:
 	@echo Downloading osmarender stylesheets ...
 	wget -nv -r -np -R index.html -nH --cut-dirs 3 http://svn.openstreetmap.org/applications/rendering/osmarender/stylesheets/
-
-style.xml: stylesheets/osm-map-features-z*.xml article.wiki 
-	cp stylesheets/osm-map-features-z${ZOOMLEVEL}.xml $@
-
-# transform OSM data into an SVG
-map.svg : filtered.osm osmarender.xsl wikitravel-print-rules.xml 
-	${XML} tr --net osmarender.xsl wikitravel-print-rules.xml > $@ 2> osmarender.log
-
 
 # store configuration from the command line
 Config.mk :
@@ -98,8 +85,6 @@ Config.mk :
 # fetch the specified article
 article.xml : Config.mk
 	wget -q -O - http://wikitravel.org/en/Special:Export?pages=${ARTICLE} > $@
-
-
 
 # extract wikitext from the XML exported from MediaWiki
 article.wiki : article.xml
@@ -126,7 +111,29 @@ RELATION = $(if $(findstring none,$(PROVIDED_URL)),wget -q -O - "http://openstre
 relation.xml : rels.xml
 	${RELATION} > $@
 
+# calculate or fetch the correct data URL, then get the data
+CALCULATED_URL = "$(shell ${XML} tr --omit-decl relation_bbox.xsl relation.xml)"
+DATAURL = $(if $(findstring none,$(PROVIDED_URL)),$(CALCULATED_URL),$(PROVIDED_URL))
+DATAFILE = $(call getvar,datafile)
 
+# use the calculation script to determine the dataurl, listings are not yet known
+# as they depend on the data.osm file
+dataurl.xsl: calculation.py relation.xml
+	python calculation.py ${SIZE} ${DATAURL} ${PLACEMENT} 0 0 0 0 0 > $@
+
+data.osm : dataurl.xsl article.wiki
+	make ${DATAFILE}
+	cp ${DATAFILE} $@
+
+%.osm:
+	wget -O $@ $(call getvar,dataurl)
+
+# get a list of the named nodes in our OSM data
+namednodes.txt : data.osm
+	${XML} sel -T -t -m "//node/tag[@k='name']"  -v @v -n $< > $@ || true
+	${XML} sel -T -t -m "//way/tag[@k='name']"  -v @v -n $< >> $@ || true
+	${XML} sel -T -t -m "//node/tag[@k='name:en']"  -v @v -n $< >> $@ || true
+	${XML} sel -T -t -m "//way/tag[@k='name:en']"  -v @v -n $< >> $@ || true
 
 # convert the wiki page into our own listings XML format
 # the listings should already be good XML, so all we should have to do is
@@ -136,25 +143,47 @@ listings-all.xml : article.wiki
 	sed 's/&/\&amp;/g' < article.wiki >> listings-all.xml
 	echo '</listings>' >> listings-all.xml
 
+# convert our listings into a simple text file
+listings.txt : listings-all.xml
+	${XML} sel -T -t -m '/listings' -m 'see|do|buy|eat|drink|sleep|listing' -v @name -n $< > $@ || true
 
+# find any listings which are not in the nodes list, and warn about them
+unmatched.txt : namednodes.txt listings.txt
+	grep -vx -f $^ > $@ || /bin/true
+
+# convert the list of unmatched listings to XML so we can read it with XSL 1.1
+unmatched.xml : unmatched.txt
+	echo '<listings>' > $@
+	sed 's/.*/<listing>&<\/listing>/' $< >> $@
+	echo '</listings>' >> $@
 
 # strip out any unmatched listings
 listings.xml : listings-all.xml unmatched.txt
 	$(if $(shell cat unmatched.txt),${XML} ed -d "`sh ${LISTFILTER} | sed -e 's/_/ /g' -e 's/\"/\\\"/g'`" listings-all.xml > $@,cp listings-all.xml $@)
 
+# Calculate all stuff needed to draw the map, now that we now the final DATAURL
+# and all the listings that need to be placed.
+vars.xsl: listings.xml calculation.py relation.xml dataurl.xsl
+	python calculation.py ${SIZE} ${DATAURL} ${PLACEMENT} `for i in //see\|//do //buy //eat //drink //sleep //listing; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
 
+# use the correct style template
+style.xml: stylesheets stylesheets/osm-map-features-z*.xml article.wiki 
+	cp stylesheets/osm-map-features-z${ZOOMLEVEL}.xml $@
 
-# calculate or fetch the correct data URL, then get the data
-CALCULATED_URL = "$(shell ${XML} tr --omit-decl relation_bbox.xsl relation.xml)"
-DATAURL = $(if $(findstring none,$(PROVIDED_URL)),$(CALCULATED_URL),$(PROVIDED_URL))
-DATAFILE = $(call getvar,datafile)
+# Build the rules file for the rendering process
+wikitravel-print-rules.xml : icon_rules.xsl vars.xsl listings.xml style.xml
+	${XML} tr icon_rules.xsl \
+		listings.xml > $@ 2> icon_rules.log
 
-data.osm : dataurl.xsl listings-all.xml relation.xml article.wiki
-	make ${DATAFILE}
-	cp ${DATAFILE} $@
+# remove amenity|tourism tags from nodes in that are in the listing
+# so that they won't be rendered by osmarender
+filtered.osm: filter-nodes.xsl listings.xml data.osm
+	${XML} tr filter-nodes.xsl data.osm > $@ 2> filtered.log
 
-%.osm:
-	wget -O $@ $(call getvar,dataurl)
+# transform OSM data into an SVG
+map.svg : filtered.osm osmarender.xsl wikitravel-print-rules.xml 
+	${XML} tr --net osmarender.xsl wikitravel-print-rules.xml > $@ 2> osmarender.log
+
 
 # This collection of rules fetch the description pages of the various
 # images which will download or (someday) upload from/to shared
@@ -168,10 +197,7 @@ svg_page.html : Config.mk
 	wget -q -O - http://wikitravel.org/shared/Image:${SVGZ} > $@
 
 
-# Build the rules file
-wikitravel-print-rules.xml : icon_rules.xsl vars.xsl listings.xml style.xml
-	${XML} tr icon_rules.xsl \
-		listings.xml > $@ 2> icon_rules.log
+
 
 # if the description page from the static overlay contains a current image
 # then fetch it, otherwise make a dummy overlay
@@ -186,13 +212,8 @@ listings.svg : listbox.xsl listings.xml wikitravel-print-rules.xml map.svg overl
 	${XML} tr listbox.xsl listings.xml > $@ 2> listbox.log 
 
 # use inkscape to convert the layered SVG file into a PNG
-TRANSFORM = "${INKSCAPE} -z --export-png=$@ -w $(PAGE_WIDTH) -h $(PAGE_HEIGHT) listings.svg"
 listings.png : listings.svg
-	# For some reason Make clobbers inkscape's memory footprint so background this
-	killall inkscape || /bin/true # sorry, one inkscape at a time
-	echo "cd ${PWD} && ${TRANSFORM}" | at now
-	sleep 1
-	while pidof inkscape ; do sleep 1 ; done
+	${INKSCAPE} -z --export-png=$@ -w $(PAGE_WIDTH) -h $(PAGE_HEIGHT) listings.svg
 
 
 
@@ -212,50 +233,13 @@ index.scm : Config.mk
 ${PNG} : listings.png index.scm
 	gimp -i -c -d -b - < index.scm >/dev/null 2>&1
 
-
-# convert our listings into a simple text file
-listings.txt : listings-all.xml
-	${XML} sel -T -t -m '/listings' -m 'see|do|buy|eat|drink|sleep|listing' -v @name -n $< > $@ || true
-
-
-# get a list of the named nodes in our OSM data
-namednodes.txt : data.osm
-	${XML} sel -T -t -m "//node/tag[@k='name']"  -v @v -n $< > $@ || true
-	${XML} sel -T -t -m "//way/tag[@k='name']"  -v @v -n $< >> $@ || true
-	${XML} sel -T -t -m "//node/tag[@k='name:en']"  -v @v -n $< >> $@ || true
-	${XML} sel -T -t -m "//way/tag[@k='name:en']"  -v @v -n $< >> $@ || true
-
-vars.xsl: listings.xml calculation.py relation.xml dataurl.xsl
-	python calculation.py ${SIZE} ${DATAURL} ${PLACEMENT} `for i in //see\|//do //buy //eat //drink //sleep //listing; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
-
-# use the calculation script to determine the dataurl, listings are not yet known
-# as they depend on the data.osm file
-dataurl.xsl: calculation.py relation.xml
-	python calculation.py ${SIZE} ${DATAURL} ${PLACEMENT} 0 0 0 0 0 > $@
-
-# find any listings which are not in the nodes list, and warn about them
-unmatched.txt : namednodes.txt listings.txt
-	grep -vx -f $^ > $@ || /bin/true
-
-
-# convert the list of unmatched listings to XML so we can read it with XSL 1.1
-unmatched.xml : unmatched.txt
-	echo '<listings>' > $@
-	sed 's/.*/<listing>&<\/listing>/' $< >> $@
-	echo '</listings>' >> $@
-
-
-
 # create an xsl layer with the unmatched listings
 unmatched.svg : unmatched.xsl unmatched.xml map.svg
 	${XML} tr unmatched.xsl map.svg > $@
 
-
-
 # rename the generated layered SVG to keep (and eventually upload)
 ${SVGZ} : listings.svg
 	cat listings.svg | gzip > ${SVGZ}
-
 
 # warn if anything is amis
 .PHONY : warnings
@@ -266,21 +250,22 @@ warnings : unmatched.txt
 # cleanup files from Wikitravel
 .PHONY : wt-clean
 wt-clean :
-	${RM} article.xml article.wiki wikitravel-print-rules.xml listings-all.xml listings.xml listings.txt overlay.svg overlay_page.html dataurl.xsl
+	${RM} article.xml article.wiki wikitravel-print-rules.xml listings-all.xml listings.xml listings.txt overlay.svg overlay_page.html dataurl.xsl style.xml
 
 #cleanup files from openstreetmap
 .PHONY : osm-clean
 osm-clean : 
-	${RM} *.osm relation.xml rels.xml relid vars.xml
+	${RM} ${DATAFILE}.osm data.osm relation.xml rels.xml vars.xsl
 
 # cleanup everything
 .PHONY : clean
 clean : wt-clean osm-clean
-	${RM} index.scm map.svg listings.svg listings.png namednodes.txt unmatched.txt transform.log wikitravel-print-rules.xml Config.mk
+	${RM} index.scm map.svg listings.svg listings.png namednodes.txt unmatched.txt transform.log wikitravel-print-rules.xml *.osm
 
 # scour
 .PHONY : dist-clean
-	${RM} *listings.png *listings.svg *.log Config.mk
+dist-clean: clean
+	${RM} *listings.png *listings.svgz *.log Config.mk
 	${RM} -r stylesheets
 
 .PHONY : ding
@@ -289,10 +274,7 @@ ding : map.svg ${SVGZ} unmatched.txt warnings
 
 .PHONY : adjustments 
 adjustments : listings.svg warnings
-	killall inkscape || /bin/true # sorry, one inkscape at a time
-	echo "DISPLAY=:0.0 ${INKSCAPE} ${PWD}/listings.svg" | at now
-	@sleep 3
-	while ps u -C inkscape ; do sleep 15 ; done
+	${INKSCAPE} ${PWD}/listings.svg
 
 .PHONY : svg
 svg : ${SVGZ}
