@@ -201,8 +201,8 @@ svg_page.html : Config.mk
 
 # if the description page from the static overlay contains a current image
 # then fetch it, otherwise make a dummy overlay
-overlay.svg : overlay_page.html
-	$(if $(shell grep '(current)' overlay_page.html),wget -q -O - http://wikitravel.org$(shell egrep '(current)' overlay_page.html | sed 's/.*href="\(\/upload\/[^"]*\).*/\1/') > $@,cp overlay_base.svg $@)
+overlay.svg : overlay_page.html overlay.xsl vars.xsl
+	$(if $(shell grep '(current)' overlay_page.html),wget -q -O - http://wikitravel.org$(shell egrep '(current)' overlay_page.html | sed 's/.*href="\(\/upload\/[^"]*\).*/\1/') > $@,echo "<a/>" | ${XML} tr overlay.xsl > $@)
 
 
 
