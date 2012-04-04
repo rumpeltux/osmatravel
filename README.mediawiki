@@ -71,9 +71,36 @@ See also: [http://wikitravel.org/en/Wikitravel:How_to_create_a_map#Edit_in_OSM W
  make upload-svg
  make upload-png
 
+== Multiple maps per article ==
+You can use multiple maps per article. Each image must be name Town_$part_map_with_listings.png.
+You must then supply a MAP=$part argument whenever invoking a make command, e.g.:
+ make MAP=center
+ make MAP=center upload-png
+ make MAP=overview
+ make MAP=overview upload-png
+
+An additional feature is, that you can limit listings to show up only in certain maps.
+This is controlled by the ''map'' attribute.
+Any listing without the attribute shows up in all maps (unless it's not in its bbox).
+Example:
+ <nowiki><listing name="Train station">shows up in all maps</listing>
+ <sleep name="Hotel Central" map="center">shows only in center map</sleep>
+ </nowiki>
+You can specify multiple maps comma-separated.
+
+== Overlays ==
+Overlays are useful to indicate further information and especially required for overview maps.
+They are also very easy to produce:
+ make listings.svg
+Now edit using inkscape, select the ''Overlay'' layer and draw whatever needs to go on the map as well.
+When finished, delete all other layers, save the file as Town_overlay.svg (or Town_$part_overlay.svg if using multiple maps) and upload it to wikitravel:
+ python pywikipedia/upload.py -keep -noverify Town_overlay.svg
+ rm overlay_page.html
+Now recreate the map:
+ make
+
 == Further Ideas / TODO ==
 
-* Place listings that are not in OSM, but have lat and lon attributes on the map
-* Allow multiple maps per article. They could have a key= attribute, which can then be referenced in the listings, so that it appears only in the selected maps.
+* Place listings that are not in OSM, but have lat and lon attributes on the map. If a listing is present in OSM but has lat/lon attributes, these should override the OSM location. This allows better placement for visual clearity.
 * create a webservice (similar to the [http://maps.navit-project.org/ Navit one]) that allows bbox selection and automatically suggests paper-sizes for the selected zoom-level
 * create a webservice that generates the maps (svg-files)

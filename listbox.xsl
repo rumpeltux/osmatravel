@@ -58,12 +58,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA
                 <xsl:copy-of select="$map/svg:svg/*"/>
             </xsl:if>
             
-            <!-- the main action :) -->
-            <xsl:call-template name="specifiedListingsBoxes"/>
-            
             <xsl:if test="$overlay">
                 <xsl:copy-of select="$overlay/svg:svg/*"/>
             </xsl:if>
+
+            <!-- the main action :) -->
+            <xsl:call-template name="specifiedListingsBoxes"/>
+            
             <xsl:if test="$unmatched">
                 <xsl:copy-of select="$unmatched/svg:svg/*"/>
             </xsl:if>

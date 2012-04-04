@@ -25,6 +25,13 @@ ifndef ARTICLE
 $(error You must set the variable ARTICLE, eg. make Config.mk ARTICLE=Paris/6th_arrondissement)
 endif
 
+ifndef MAP
+MAP=
+IMAGENAME=$(subst /,_,${ARTICLE})
+else
+IMAGENAME=$(subst /,_,${ARTICLE})_${MAP}
+endif
+
 BELL = no
 
 # Programs
@@ -52,14 +59,14 @@ ZOOMLEVEL = $(call getval,zoom,17)
 PROVIDED_URL = $(call getval,osm_url,none)
 
 DING := $(shell if [ "${BELL}" != "no" ] ; then echo 'ding' ; else echo '' ; fi )
-PNG := $(subst /,_,${ARTICLE})_map_with_listings.png
-SVG := $(subst /,_,${ARTICLE})_map_with_listings.svg
-SVGZ := $(subst /,_,${ARTICLE})_map_with_listings.svgz
-OVERLAY := $(subst /,_,${ARTICLE})_overlay.svg
+PNG := ${IMAGENAME}_map_with_listings.png
+SVG := ${IMAGENAME}_map_with_listings.svg
+SVGZ := ${IMAGENAME}_map_with_listings.svgz
+OVERLAY := ${IMAGENAME}_overlay.svg
 
-getval = $(shell if egrep -q '\[\[Image:.*\|$(1)=' article.wiki ;\
+getval = $(shell if egrep -q '\[\[Image:.*${MAP}_map.*\|$(1)=' article.wiki ;\
 				 then \
-				   	 egrep '\[\[Image:.*\|$(1)=' article.wiki | sed 's/.*|$(1)=\([^|]*\)|.*/\1/' ;\
+				   	 egrep '\[\[Image:.*${MAP}_map.*\|$(1)=' article.wiki | sed 's/.*|$(1)=\([^|]*\)|.*/\1/' ;\
 				 else \
 				   	 echo $(2) ;\
 				 fi )
@@ -81,6 +88,13 @@ stylesheets:
 Config.mk :
 	echo ARTICLE = $(ARTICLE) > $@
 
+# update the key when a new one is provided, this causes other targets to rebuild
+.PHONY : key-clean
+key-clean: 
+	@[ "`cat article.key`" == "${MAP}" ] || echo ${MAP} > article.key
+
+article.key: key-clean
+
 
 # fetch the specified article
 article.xml : Config.mk
@@ -90,15 +104,15 @@ article.xml : Config.mk
 article.wiki : article.xml
 	${XML} sel -N mw=http://www.mediawiki.org/xml/export-0.3/ -t -v "/mw:mediawiki/mw:page/mw:revision/mw:text" article.xml | ${XML} unesc > article.wiki
 
-
-
+	
 # get the list of relations matchine the border name 
 # *** (unless the article provides a URL) ***
 empty:=
 space:= $(empty) $(empty)
 BORDER_VALUE = $(subst $(space),+,$(call getval,border))
 RELS = $(if $(and $(findstring none,$(call getval,relid,none)), $(findstring none,$(PROVIDED_URL))),wget -q -O - "http://www.informationfreeway.org/api/0.6/relation[name=${BORDER_VALUE}]",echo)
-rels.xml : article.wiki
+rels.xml : article.key article.wiki
+	$(if $(shell [ $(shell egrep -c '\[\[Image:.*${MAP}_map.*\|' article.wiki) -gt 1 ] && echo true ]), $(error Looks like you have multiple images, please specify the MAP= argument when running make or put it into Config.mk))
 	$(if $(and $(findstring none,$(call getval,osm_url,none)),$(findstring none,$(call getval,border,none))),$(error You must configure either 'relid', 'border' or 'osm_url' in the map image in your Wikitravel article.))
 	${RELS} > $@
 # TODO we need to fix extracting the URL
@@ -118,7 +132,7 @@ DATAFILE = $(call getvar,datafile)
 
 # use the calculation script to determine the dataurl, listings are not yet known
 # as they depend on the data.osm file
-dataurl.xsl: calculation.py relation.xml
+dataurl.xsl: calculation.py article.key relation.xml
 	python calculation.py ${SIZE} ${DATAURL} ${PLACEMENT} 0 0 0 0 0 > $@
 
 data.osm : dataurl.xsl article.wiki
@@ -138,10 +152,9 @@ namednodes.txt : data.osm
 # convert the wiki page into our own listings XML format
 # the listings should already be good XML, so all we should have to do is
 # wrap the page with a top-level tag
-listings-all.xml : article.wiki
-	echo '<listings>' > listings-all.xml
-	sed 's/&/\&amp;/g' < article.wiki >> listings-all.xml
-	echo '</listings>' >> listings-all.xml
+listings-all.xml : filter-listings.xsl article.key article.wiki
+	(echo '<listings>'; sed 's/&/\&amp;/g' < article.wiki; echo '</listings>') \
+		| ${XML} tr filter-listings.xsl -s map=${MAP} > $@ 2>filter-listings.log
 
 # convert our listings into a simple text file
 listings.txt : listings-all.xml
@@ -167,7 +180,7 @@ vars.xsl: listings.xml calculation.py relation.xml dataurl.xsl
 	python calculation.py ${SIZE} ${DATAURL} ${PLACEMENT} `for i in //see\|//do //buy //eat //drink //sleep //listing; do ${XML} sel -t -v "count($$i)" listings.xml; done` > $@
 
 # use the correct style template
-style.xml: stylesheets stylesheets/osm-map-features-z*.xml article.wiki 
+style.xml: stylesheets stylesheets/osm-map-features-z*.xml article.key article.wiki 
 	cp stylesheets/osm-map-features-z${ZOOMLEVEL}.xml $@
 
 # Build the rules file for the rendering process
@@ -219,7 +232,7 @@ listings.png : listings.svg
 
 # Generate scheme instructions for Gimp to rename the raw PNG image and
 # reduce its colour set
-index.scm : Config.mk
+index.scm : article.key Config.mk
 	echo -n > $@
 	echo '(define filename "listings.png" )' >> $@
 	echo '(define outfile "${PNG}" )' >> $@
@@ -250,7 +263,7 @@ warnings : unmatched.txt
 # cleanup files from Wikitravel
 .PHONY : wt-clean
 wt-clean :
-	${RM} article.xml article.wiki wikitravel-print-rules.xml listings-all.xml listings.xml listings.txt overlay.svg overlay_page.html dataurl.xsl style.xml
+	${RM} article.xml article.wiki wikitravel-print-rules.xml listings-all.xml listings.xml listings.txt overlay.svg overlay_page.html dataurl.xsl article.key style.xml
 
 #cleanup files from openstreetmap
 .PHONY : osm-clean
