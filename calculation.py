@@ -101,9 +101,9 @@ numBoxes = max(1, int((dataWidth - box_border) / boxMinWidth))
 boxWidth = (dataWidth - box_border) / numBoxes
 
 
-listingLines = sum([i + (2 if i > 0 else 0) for i in numListings])
 lineHeight = 4.25 # 1. / pixelLineHeight
-headline = 6.72 / lineHeight
+headline = 6.72 / lineHeight # 6.72 is the absolute height
+listingLines = sum([i + (headline if i > 0 else 0) for i in numListings])
 
 def _get_box_distribution(nBoxes, height):
     """
@@ -135,6 +135,9 @@ def _get_box_distribution(nBoxes, height):
     # finish the last box
     yield cur_elems
 
+flow_top_margin = 2
+flow_bottom_margin = 2
+flow_margin = flow_top_margin + flow_bottom_margin
 
 if leftOffset + rightOffset > bottomOffset + topOffset:
     # the map area is extended, such that there is space to the left not covering
@@ -144,26 +147,25 @@ if leftOffset + rightOffset > bottomOffset + topOffset:
     width = max(leftOffset, rightOffset)
     height = dataHeight - 2*box_border
     numBoxes = 1
-    if height < lineHeight * listingLines:
-        lineHeight = height / listingLines
+    if height < lineHeight * listingLines + flow_margin:
+        # this won't fit, the lineHeight is not used anywhere :/
+        lineHeight = (height - flow_margin) / listingLines
     else:
-        height = lineHeight * listingLines
+        height = lineHeight * listingLines + flow_margin
     boxes = [sum(numListings)] # only one box
 else:
     # there is space on the bottom, so we try to fit as many boxes
     # there as possible
     boxLocation = "bottom"
     height = max(bottomOffset, topOffset) * projection
-    flow_top_margin = 2
-    flow_bottom_margin = 2
     width  = dataWidth - box_border
-    flowHeight = height - flow_top_margin - flow_bottom_margin
+    flowHeight = height - flow_margin
 
     if flowHeight * numBoxes > lineHeight * listingLines:
-        height = (lineHeight * listingLines + numBoxes) / numBoxes + flow_top_margin + flow_bottom_margin
+        height = (lineHeight * listingLines + numBoxes) / numBoxes + flow_margin
 
     while 1:
-        flowHeight = height - flow_top_margin - flow_bottom_margin
+        flowHeight = height - flow_margin
         # calculate the number of listings per box
         boxes = list(_get_box_distribution(numBoxes, flowHeight))
         
