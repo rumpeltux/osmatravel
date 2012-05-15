@@ -295,7 +295,7 @@ svg : ${SVGZ}
 .PHONY : svg
 png : ${PNG}
 
-UPLOAD_MESSAGE = "Created using [http://wikitravel.org/en/Wikitravel:How_to_create_a_map osmatravel]\
+UPLOAD_MESSAGE = "Created using [http://wikitravel.org/en/Wikitravel:How_to_create_a_map/Expert_maps osmatravel]\
 {{Imagecredit|credit=Selfmade|captureDate=|location=|source=OSM|caption=${ARTICLE}|description=Map of ${ARTICLE}}}\
 {{Map|$(call getval,is_in)}}"
 

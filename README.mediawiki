@@ -26,7 +26,7 @@ The key requirements are:
 * Upload the image (either by hand or use <tt>make upload-svg && make upload-png</tt>)
 
 === Some further notes ===
-* Most steps are still the same as in the [http://wikitravel.org/en/Wikitravel:How_to_create_a_map#Expert_maps original article]
+* Most steps are still the same as in the [http://wikitravel.org/en/Wikitravel:How_to_create_a_map/Expert_maps original article]
 * The old argument styles do not work anymore, see [[#Variables|Variables]].
 * The selected bbox area has a certain width and height, however this area is then adjust so that the map fill the actual specified width and height (''size'' argument). This creates space either at the left or the bottom, where the listing boxes are then placed.
 * If further modifications / adjustments are needed it would be a good idea to adjust the code instead of individual maps / svg-files. Introduce another param, send a patch :)
@@ -47,13 +47,13 @@ The following variables can be usid in the image-Tag:
 * I do this by starting ''josm'' on the commandline, select the download button and select the area that definitely must be in the map. When hitting ok, josm will print the bbox url on the commandline, which can be copied to the article.
 * Another way would be to go to http://www.informationfreeway.org/ which shows Lat and Lon. Note down the Koordinates for the bottom-left and the top-right corner of your area. The url is then constructed as follows: http://www.openstreetmap.org/api/0.6/map?bbox=$bottomLeftLongitude,$bottomLeftLatitude,$topRightLongitude,$topRightLatitude
 
-See also: [http://wikitravel.org/en/Wikitravel:How_to_create_a_map#Find_the_destination_in_OSM Wikitravel:How_to_create_a_map#Find_the_destination_in_OSM]
+See also: [http://wikitravel.org/en/Wikitravel:How_to_create_a_map/Expert_maps#Find_the_destination_in_OSM Wikitravel:How_to_create_a_map/Expert_maps#Find_the_destination_in_OSM]
 
 == Fixing data ==
 Add <tt><nowiki><listing name="..." /></nowiki></tt> for things that shall be on the map and make sure these nodes / ways are available in openstreetmap as well (also check to see that the other ''name''="..." tags in the listings match the ''name'' or ''name:en'' tag in OSM.
 Only elements using the <nowiki><listing> or <sleep> or <eat> etc. tags will be considered.</nowiki>
 
-See also: [http://wikitravel.org/en/Wikitravel:How_to_create_a_map#Edit_in_OSM Wikitravel:How_to_create_a_map#Edit_in_OSM]
+See also: [http://wikitravel.org/en/Wikitravel:How_to_create_a_map/Expert_maps#Edit_in_OSM Wikitravel:How_to_create_a_map/Expert_maps#Edit_in_OSM]
 
 == Automated uploading to Wikitravel-Shared ==
 1. Install pywikipedia (see [[#Installation|Installation]])
